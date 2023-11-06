@@ -1,5 +1,5 @@
-try:
-    n = "toto.txt"
+n = "tot.txt"
+def fich(n):
     fichier = open(n, "r")
     lignes = fichier.readlines()
     for ligne in lignes:
@@ -7,6 +7,15 @@ try:
         print(ligne)
     fichier.close()
 
+def fichw(n):
+    with open(n, 'r') as f:
+        for l in f:
+            l = l.rstrip("\n\r")
+            print(l)
+
+try:
+    fich(n)
+    fichw(n)
 except FileNotFoundError:
     print("le fichier n'existe pas")
 
