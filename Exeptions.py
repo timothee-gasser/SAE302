@@ -16,8 +16,9 @@ if __name__ == '__main__':
     try:
         a = float(input("x: "))
         b = float(input("y: "))
-        print(divEntier(a, b))
     except ValueError:
         print("met une bonne valeur, genre un chifre")
     except RecursionError:
         print("met une bonne valeur, genre un truc autre que 0 et positife")
+    else:
+        print(divEntier(a, b))
