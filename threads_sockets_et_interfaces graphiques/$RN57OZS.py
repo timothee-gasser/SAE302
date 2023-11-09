@@ -8,35 +8,39 @@ server_socket.bind((host, port))
 server_socket.listen(1)
 print(f"Le serveur écoute sur {host}:{port}")
 
-try:
-    def srv():
+while True:
+    conn, address = server_socket.accept()
+    print(f"Connexion entrante de {address}")
+
+    try:
         while True:
-            conn, address = server_socket.accept()
-            print(f"Connexion entrante de {conn}")
-            while True:
-                data = conn.recv(1024).decode()
+            data = conn.recv(1024).decode()
 
-                if data.lower() == 'bye':
-                    bye = "ok bye"
-                    conn.send(bye.encode())
-                    print(f"Le client {conn} c'est deco")
-                    break
-
-                if data.lower() == 'arret':
-                    arret = "ok arret"
-                    conn.send(arret.encode())
-                    server_socket.close()
-                    print("arret du srv")
-                    break
-                response = "bien recu"
-                conn.send(response.encode())
-                print(f"Message du client : {data}")
-            conn.close()
-            if data.lower() == 'arret':
+            if not data:
+                print(f" Le client {address} c'est barré")
                 break
-except ConnectionAbortedError:
-    print("Le client a fait de la merde")
-except ConnectionResetError:
-    print("Le client a fait de la merde")
-finally:
-    srv()
+
+            if data.lower() == 'bye':
+                bye = "ok bye"
+                conn.send(bye.encode())
+                print(f"Le client {address} s'est deco")
+                break
+
+            if data.lower() == 'arret':
+                arret = "ok arret"
+                conn.send(arret.encode())
+                server_socket.close()
+                print("Arrêt du serveur")
+                break
+
+            response = "bien recu"
+            conn.send(response.encode())
+            print(f"Message du client : {data}")
+
+    except ConnectionResetError:
+        print(f"Le client {address} a fait de la merde")
+
+    conn.close()
+
+    if data.lower() == 'arret':
+        break
