@@ -11,7 +11,9 @@ print(f"Le serveur écoute sur {host}:{port}")
 conn, address = server_socket.accept()
 print(f"Connexion entrante de {address}")
 
-while True:
+serveur_en_marche = True
+
+while serveur_en_marche:
     data = conn.recv(1024).decode()
 
     if not data:
@@ -22,12 +24,21 @@ while True:
         bye = "ok bye"
         conn.send(bye.encode())
         print(f"Le client {address} s'est déconnecté")
-        break
+        serveur_en_marche = True
+        conn.close()
+        print(f"Le serveur écoute sur {host}:{port}")
+        conn, address = server_socket.accept()
 
-    response = "bien recu"
-    conn.send(response.encode())
-    print(f"Message du client : {data}")
+    elif data.lower() == 'arret':
+        bye = "ok arret"
+        conn.send(bye.encode())
+        print(f"Arrêt du serveur demandé par le client {address}")
+        serveur_en_marche = False
+        conn.close()
+        print("Arrêt du serveur")
+    else:
+        response = "bien recu"
+        conn.send(response.encode())
+        print(f"Message du client : {data}")
 
-conn.close()
 server_socket.close()
-print("Arrêt du serveur")
