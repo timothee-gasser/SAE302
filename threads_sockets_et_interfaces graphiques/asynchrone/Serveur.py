@@ -2,28 +2,32 @@ import socket
 import threading
 
 server_running = True  # Variable de contrôle du serveur
+client_connected = False  # Variable pour indiquer si un client est connecté
 
 def reception(conn, address):
-    global server_running  # Référence à la variable globale
+    global server_running, client_connected
     while server_running:
         try:
             data = conn.recv(1024).decode()
 
             if not data:
                 print(f"Le client {address} s'est déconnecté")
+                client_connected = False
                 break
 
             if data.lower() == 'bye':
                 bye = "ok bye"
                 conn.send(bye.encode())
                 print(f"Le client {address} s'est déconnecté")
+                client_connected = False
                 break
 
             elif data.lower() == 'arret':
                 arret = "ok arret"
                 conn.send(arret.encode())
                 print(f"Arrêt du serveur demandé par le client {address}")
-                server_running = False  # Modifier la variable pour arrêter le serveur
+                server_running = False
+                client_connected = False
                 break
 
             else:
@@ -36,13 +40,12 @@ def reception(conn, address):
             break
 
 def send_message(conn):
-    while True:
-        message_to_send = input("Entrez le message à envoyer au client ('exit' pour quitter) : ")
-        if message_to_send.lower() == 'exit':
-            break
-
+    global server_running, client_connected
+    while server_running or client_connected:
         try:
+            message_to_send = input("Entrez le message à envoyer au client : ")
             conn.send(message_to_send.encode())
+
         except Exception as e:
             print(f"Une erreur s'est produite lors de l'envoi du message : {e}")
             break
@@ -60,6 +63,7 @@ try:
     while True:
         conn, address = server_socket.accept()
         print(f"Connexion entrante de {address}")
+        client_connected = True
 
         reception_thread = threading.Thread(target=reception, args=(conn, address))
         reception_thread.start()
@@ -67,7 +71,7 @@ try:
         send_thread = threading.Thread(target=send_message, args=(conn,))
         send_thread.start()
 
-
+    server_socket.close()
 
 except Exception as e:
     print(f"Erreur lors de la création du serveur : {e}")
