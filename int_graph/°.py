@@ -1,106 +1,97 @@
 import sys
-from PyQt5.QtWidgets import QApplication, QWidget, QLabel, QLineEdit, QVBoxLayout, QHBoxLayout, QPushButton, QComboBox, QMessageBox
+from PyQt6.QtWidgets import QApplication, QMainWindow, QLabel, QLineEdit, QComboBox, QPushButton, QWidget, QMessageBox, QGridLayout
 
-class ConversionTemperatureApp(QWidget):
+class TemperatureConverter(QMainWindow):
     def __init__(self):
         super().__init__()
 
-        self.setWindowTitle("Conversion de Température")
+        self.setWindowTitle("Convertisseur de Température")
+        self.setGeometry(100, 100, 400, 200)
+
+        layout = QGridLayout()
 
 
-        self.temperature_label = QLabel("Température:")
-        self.temperature_entry = QLineEdit()
-        self.unit_label_input = QLabel()
+        label_temp = QLabel("Température:")
+        self.input_temp = QLineEdit()
+        layout.addWidget(label_temp, 0, 0)
+        layout.addWidget(self.input_temp, 0, 1)
+
+        self.temp_label = QLabel("")
+        layout.addWidget(self.temp_label, 0, 2)
+
 
         self.convert_button = QPushButton("Convertir")
         self.convert_button.clicked.connect(self.convert_temperature)
-        self.conversion_type_combobox = QComboBox()
-        self.conversion_type_combobox.addItems(["°C vers °K", "°K vers °C"])
+        layout.addWidget(self.convert_button, 1, 1)
+
+        self.convert_direction_combo = QComboBox()
+        self.convert_direction_combo.addItems(["°C à °K", "°K à °C"])
+        self.convert_direction_combo.currentIndexChanged.connect(self.update_temp_labels)
+        layout.addWidget(self.convert_direction_combo, 1, 2)
 
 
-        self.result_label = QLabel("Conversion:")
-        self.result_entry = QLineEdit()
-        self.result_entry.setReadOnly(True)
-        self.unit_label_output = QLabel()
+        label_conversion = QLabel("Conversion:")
+        self.result_conversion = QLineEdit()
+        self.result_conversion.setReadOnly(True)
+        layout.addWidget(label_conversion, 2, 0)
+        layout.addWidget(self.result_conversion, 2, 1)
 
-        # Quatrième ligne (mise à jour de l'unité en fonction de la conversion)
-        self.unit_combobox_input = QComboBox()
-        self.update_unit_combobox()
+        self.result_unit_label = QLabel("")
+        layout.addWidget(self.result_unit_label, 2, 2)
 
-        # Layout
-        layout = QVBoxLayout()
+        self.help_button = QPushButton("?")
+        self.help_button.clicked.connect(self.show_help_message)
+        layout.addWidget(self.help_button, 3, 3)
 
-
-        input_layout = QHBoxLayout()
-        input_layout.addWidget(self.temperature_label)
-        input_layout.addWidget(self.temperature_entry)
-        input_layout.addWidget(self.unit_label_input)  # Ajout du QLabel à la mise en page
-        layout.addLayout(input_layout)
-
-
-        convert_layout = QHBoxLayout()
-        convert_layout.addWidget(self.convert_button)
-        convert_layout.addWidget(self.conversion_type_combobox)
-        layout.addLayout(convert_layout)
-
-        result_layout = QHBoxLayout()
-        result_layout.addWidget(self.result_label)
-        result_layout.addWidget(self.result_entry)
-        result_layout.addWidget(self.unit_label_output)
-        layout.addLayout(result_layout)
-
-
-
-        self.update_unit_combobox()
-
-        self.setLayout(layout)
+        central_widget = QWidget()
+        central_widget.setLayout(layout)
+        self.setCentralWidget(central_widget)
 
     def convert_temperature(self):
         try:
-            temperature = float(self.temperature_entry.text())
-        except ValueError:
-            self.show_error("Veuillez saisir une valeur numérique.")
-            return
-
-        conversion_type = self.conversion_type_combobox.currentText()
-
-        # Mise à jour de l'unité d'entrée
-        if "°C" in conversion_type:
-            self.unit_label_input.setText("°C")
-        elif "°K" in conversion_type:
-            self.unit_label_input.setText("°K")
-
-        if conversion_type == "°C vers °K":
-            if temperature < -273.15:
-                self.show_error("La température est inférieure au zéro absolu.")
+            temperature = float(self.input_temp.text())
+            if self.convert_direction_combo.currentText() == "°C à °K":
+                if temperature < -273.15:
+                    raise ValueError("La température en Celsius ne peut pas être inférieure à -273.15°C (zéro absolu)")
+                converted_temp = temperature + 273.15
+                converted_unit = "°K"
             else:
-                converted_temperature = temperature + 273.15
-                self.result_entry.setText(str(converted_temperature))
-                self.unit_label_output.setText("°K")
+                if temperature < 0:
+                    raise ValueError("La température en Kelvin ne peut pas être inférieure à 0°K")
+                converted_temp = temperature - 273.15
+                converted_unit = "°C"
 
-        elif conversion_type == "°K vers °C":
-            if temperature < 0:
-                self.show_error("La température est inférieure au zéro absolu.")
-            else:
-                converted_temperature = temperature - 273.15
-                self.result_entry.setText(str(converted_temperature))
-                self.unit_label_output.setText("°C")
+            self.result_conversion.setText(f"{converted_temp:.2f}")
+            self.result_unit_label.setText(converted_unit)
+        except ValueError as e:
+            QMessageBox.critical(self, "Erreur", str(e))
+            self.result_conversion.clear()
+            self.result_unit_label.clear()
 
-    def update_unit_combobox(self):
-        conversion_type = self.conversion_type_combobox.currentText()
+    def update_temp_labels(self):
 
-        if "°C" in conversion_type:
-            self.unit_combobox_input.clear()
-            self.unit_label_input.setText("°C")  # Mettez à jour l'unité d'entrée
-        elif "°K" in conversion_type:
-            self.unit_combobox_input.clear()
-            self.unit_label_input.setText("°K")  # Mettez à jour l'unité d'entrée
+        direction = self.convert_direction_combo.currentText()
+        if direction == "°C à °K":
+            self.temp_label.setText("°C")
+            self.result_unit_label.setText("°K")
+        else:
+            self.temp_label.setText("°K")
+            self.result_unit_label.setText("°C")
 
-    def show_error(self, message):
-        QMessageBox.critical(self, "Erreur", message)
+    def show_help_message(self):
+        msg_box = QMessageBox()
+        msg_box.setWindowTitle("Aide")
+        msg_box.setText("Permet de convertir un nombre soit de Kelvin vers Celcus, soit de Celcus vers Kelvin")
+        ok_button = msg_box.addButton(QMessageBox.StandardButton.Ok)
+        msg_box.exec()
+        if msg_box.clickedButton() == ok_button:
+            msg_box.close()
+
+def main():
+    app = QApplication(sys.argv)
+    converter = TemperatureConverter()
+    converter.show()
+    sys.exit(app.exec())
 
 if __name__ == "__main__":
-    app = QApplication(sys.argv)
-    window = ConversionTemperatureApp()
-    window.show()
-    sys.exit(app.exec_())
+    main()

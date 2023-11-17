@@ -12,7 +12,7 @@ class MyWidget(QWidget):
     def init_ui(self):
         self.resize(250, 0)
         self.setWindowTitle("Test Timothée")
-        self.setWindowIcon(QIcon('C:/Users/e2200466/PycharmProjects/R3.09/int_graph/icon.png'))
+        self.setWindowIcon(QIcon('icon.png'))
 
         layout = QVBoxLayout()
 
