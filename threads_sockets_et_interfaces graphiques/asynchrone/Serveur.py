@@ -1,8 +1,8 @@
 import socket
 import threading
 
-server_running = True  # Variable de contrôle du serveur
-client_connected = False  # Variable pour indiquer si un client est connecté
+server_running = True
+client_connected = False
 
 def reception(conn, address):
     global server_running, client_connected
@@ -60,7 +60,7 @@ try:
     server_socket.listen(1)
     print(f"Le serveur écoute sur {host}:{port}")
 
-    while True:
+    while server_running or client_connected:
         conn, address = server_socket.accept()
         print(f"Connexion entrante de {address}")
         client_connected = True

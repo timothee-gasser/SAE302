@@ -23,7 +23,6 @@ try:
     client_socket.connect((host, port))
     print(f"Connecté au serveur sur {host}:{port}")
 
-    # Lancement du thread pour recevoir les messages
     receive_thread = threading.Thread(target=receive_messages, args=(client_socket,))
     receive_thread.start()
 
