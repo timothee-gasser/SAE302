@@ -1,12 +1,12 @@
 import sys
 from PyQt6.QtWidgets import QApplication, QMainWindow, QLabel, QLineEdit, QComboBox, QPushButton, QWidget, QMessageBox, QGridLayout
-
+from PyQt6.QtGui import QIcon
 class TemperatureConverter(QMainWindow):
     def __init__(self):
         super().__init__()
 
         self.setWindowTitle("Convertisseur de Température")
-        self.setGeometry(100, 100, 400, 200)
+        self.setWindowIcon(QIcon('icon.png'))
 
         layout = QGridLayout()
 
@@ -25,7 +25,7 @@ class TemperatureConverter(QMainWindow):
         layout.addWidget(self.convert_button, 1, 1)
 
         self.convert_direction_combo = QComboBox()
-        self.convert_direction_combo.addItems(["°C à °K", "°K à °C"])
+        self.convert_direction_combo.addItems(["°C à K", "K à °C"])
         self.convert_direction_combo.currentIndexChanged.connect(self.update_temp_labels)
         layout.addWidget(self.convert_direction_combo, 1, 2)
 
@@ -50,11 +50,11 @@ class TemperatureConverter(QMainWindow):
     def convert_temperature(self):
         try:
             temperature = float(self.input_temp.text())
-            if self.convert_direction_combo.currentText() == "°C à °K":
+            if self.convert_direction_combo.currentText() == "°C à K":
                 if temperature < -273.15:
                     raise ValueError("La température en Celsius ne peut pas être inférieure à -273.15°C (zéro absolu)")
                 converted_temp = temperature + 273.15
-                converted_unit = "°K"
+                converted_unit = "K"
             else:
                 if temperature < 0:
                     raise ValueError("La température en Kelvin ne peut pas être inférieure à 0°K")
@@ -71,11 +71,11 @@ class TemperatureConverter(QMainWindow):
     def update_temp_labels(self):
 
         direction = self.convert_direction_combo.currentText()
-        if direction == "°C à °K":
+        if direction == "°C à K":
             self.temp_label.setText("°C")
-            self.result_unit_label.setText("°K")
+            self.result_unit_label.setText("K")
         else:
-            self.temp_label.setText("°K")
+            self.temp_label.setText("K")
             self.result_unit_label.setText("°C")
 
     def show_help_message(self):
