@@ -2,24 +2,25 @@ import socket
 import threading
 
 server_running = True
-client_connected = False
+client_sockets = {}
+server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
-def reception(conn, address):
-    global server_running, client_connected
+def handle_client(conn, address):
+    global server_running
     while server_running:
         try:
             data = conn.recv(1024).decode()
 
             if not data:
                 print(f"Le client {address} s'est déconnecté")
-                client_connected = False
+                remove_client(conn)
                 break
 
             if data.lower() == 'bye':
                 bye = "ok bye"
                 conn.send(bye.encode())
                 print(f"Le client {address} s'est déconnecté")
-                client_connected = False
+                remove_client(conn)
                 break
 
             elif data.lower() == 'arret':
@@ -27,54 +28,59 @@ def reception(conn, address):
                 conn.send(arret.encode())
                 print(f"Arrêt du serveur demandé par le client {address}")
                 server_running = False
-                client_connected = False
+                remove_client(conn)
                 break
 
             else:
-                response = "bien recu"
-                conn.send(response.encode())
-                print(f"Message du client : {data}")
+                print(f"Message du client {address}: {data}")
+                send_to_other_clients(data, conn)
 
         except Exception as e:
             print(f"Une erreur s'est produite : {e}")
+            remove_client(conn)
             break
 
-def send_message(conn):
-    global server_running, client_connected
-    while server_running or client_connected:
-        try:
-            message_to_send = input("Entrez le message à envoyer au client : ")
-            conn.send(message_to_send.encode())
+def send_to_other_clients(message, sender_conn):
+    sender_address = client_sockets[sender_conn]
+    for client_conn, address in client_sockets.items():
+        if client_conn != sender_conn:
+            try:
+                client_conn.send(f"{sender_address}: {message}".encode())
+            except Exception as e:
+                print(f"Erreur lors de l'envoi du message aux clients : {e}")
+                remove_client(client_conn)
 
-        except Exception as e:
-            print(f"Une erreur s'est produite lors de l'envoi du message : {e}")
-            break
 
-host = '0.0.0.0'
-port = 12345
+def remove_client(client_conn):
+    if client_conn in client_sockets:
+        del client_sockets[client_conn]
+        client_conn.close()
 
-server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+def start_server():
+    host = '0.0.0.0'
+    port = 12345
 
-try:
-    server_socket.bind((host, port))
-    server_socket.listen(1)
-    print(f"Le serveur écoute sur {host}:{port}")
+    try:
+        server_socket.bind((host, port))
+        server_socket.listen(5)
+        print(f"Le serveur écoute sur {host}:{port}")
 
-    while server_running or client_connected:
-        conn, address = server_socket.accept()
-        print(f"Connexion entrante de {address}")
-        client_connected = True
+        while server_running:
+            conn, address = server_socket.accept()
+            print(f"Connexion entrante de {address}")
 
-        reception_thread = threading.Thread(target=reception, args=(conn, address))
-        reception_thread.start()
+            client_sockets[conn] = address
 
-        send_thread = threading.Thread(target=send_message, args=(conn,))
-        send_thread.start()
+            client_thread = threading.Thread(target=handle_client, args=(conn, address))
+            client_thread.start()
 
-    server_socket.close()
+        server_socket.close()
 
-except Exception as e:
-    print(f"Erreur lors de la création du serveur : {e}")
+    except Exception as e:
+        print(f"Erreur lors de la création du serveur : {e}")
 
-finally:
-    server_socket.close()
+    finally:
+        server_socket.close()
+
+if __name__ == "__main__":
+    start_server()

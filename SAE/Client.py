@@ -47,7 +47,7 @@ class ClientWindow(QMainWindow):
                 if not reply:
                     self.received_messages.append("Le serveur s'est déconnecté")
                     break
-                self.received_messages.append(f"Serveur : {reply}")
+                self.received_messages.append(reply)
 
             except Exception as e:
                 self.received_messages.append(f"Une erreur s'est produite lors de la réception des messages : {e}")
