@@ -2,12 +2,11 @@ import sys
 import socket
 import threading
 from PyQt6.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QWidget, QTextEdit, QLineEdit, QPushButton
-
 class ClientWindow(QMainWindow):
     def __init__(self):
         super().__init__()
 
-        self.setWindowTitle("Client2")
+        self.setWindowTitle("Client")
 
         layout = QVBoxLayout()
 
@@ -21,6 +20,10 @@ class ClientWindow(QMainWindow):
         send_button = QPushButton("Envoyer")
         send_button.clicked.connect(self.send_message)
         layout.addWidget(send_button)
+
+        quit_button = QPushButton("Quitter")
+        quit_button.clicked.connect(self.quit_app)
+        layout.addWidget(quit_button)
 
         central_widget = QWidget()
         central_widget.setLayout(layout)
@@ -61,6 +64,7 @@ class ClientWindow(QMainWindow):
             if message.lower() == 'bye':
                 self.received_messages.append("Le serveur s'est déconnecté")
                 self.client_socket.close()
+                self.close()  # Ferme la fenêtre lorsque 'bye' est envoyé
 
             if message.lower() == 'arret':
                 self.received_messages.append("Arrêt du serveur demandé")
@@ -69,6 +73,14 @@ class ClientWindow(QMainWindow):
 
         except Exception as e:
             self.received_messages.append(f"Une erreur s'est produite : {e}")
+
+    def quit_app(self):
+        self.send_message()  # Envoie 'bye' au serveur
+        self.client_socket.close()  # Ferme la communication
+        self.close()  # Ferme la fenêtre
+
+    def closeEvent(self, event):
+        self.quit_app()  # Appelé lorsque la fenêtre est fermée via la croix
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)

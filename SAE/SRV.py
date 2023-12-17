@@ -7,8 +7,8 @@ client_sockets = {}
 server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 def handle_client(conn, address):
     global server_running
-    authenticated = False  # Variable pour suivre l'état d'authentification du client
-    user_login = None  # Pour stocker le login de l'utilisateur authentifié
+    authenticated = False
+    user_login = None
 
     while server_running:
         try:
@@ -24,30 +24,24 @@ def handle_client(conn, address):
                 conn.send(bye.encode())
                 print(f"Le client {address} s'est déconnecté")
                 remove_client(conn)
+                conn.close()
                 break
 
-            elif data.lower() == 'arret':
-                arret = "ok arret"
-                conn.send(arret.encode())
-                print(f"Arrêt du serveur demandé par le client {address}")
-                server_running = False
-                remove_client(conn)
-                break
 
-            elif not authenticated:  # Si l'utilisateur n'est pas encore authentifié
+            elif not authenticated:
                 if data.startswith('/connect'):
-                    credentials = data.split()[1:]  # Extraction des identifiants
+                    credentials = data.split()[1:]
                     if len(credentials) == 2:
                         login, password = credentials
-                        ip = address[0]  # Récupération de l'adresse IP du client
+                        ip = address[0]
 
-                        # Vérification de l'authentification
+
                         is_authenticated = connection(f"/connect {login} {password}", ip)
                         if is_authenticated:
                             conn.send("Successfully connected!".encode())
                             print(f"Utilisateur {login} connecté depuis {ip}")
-                            authenticated = True  # Authentification réussie
-                            user_login = login  # Enregistrement du login de l'utilisateur
+                            authenticated = True
+                            user_login = login
                         else:
                             conn.send("Authentication failed. Closing connection.".encode())
                             remove_client(conn)
@@ -57,7 +51,7 @@ def handle_client(conn, address):
                     remove_client(conn)
                     break
 
-            else:  # Une fois authentifié, l'utilisateur peut envoyer des messages normalement
+            else:
                 print(f"Message du client {address}: {data}")
                 send_to_other_clients(f"{user_login}: {data}", conn)
 

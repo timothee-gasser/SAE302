@@ -9,7 +9,7 @@ def connection(message, ip_address):
     mdp = msg_split[2]
     try:
         db_connection = mysql.connector.connect(
-            host='192.168.0.14',
+            host='192.168.0.6',
             user='toto',
             password='toto',
             database='SAE302'
@@ -20,7 +20,7 @@ def connection(message, ip_address):
         user = cursor.fetchone()
 
         if user:
-            update_query = "UPDATE Utilisateur SET last_ip = %s WHERE login = %s"
+            update_query = "UPDATE Utilisateur SET last_ip = %s, etat_util = 'connect' WHERE login = %s"
             cursor.execute(update_query, (ip_address, login))
             db_connection.commit()
             db_connection.close()
@@ -34,8 +34,6 @@ def connection(message, ip_address):
         return False
 
 
-
-
 def main():
 
     msg = "/connect titi titi"
@@ -46,4 +44,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
