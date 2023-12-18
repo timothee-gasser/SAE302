@@ -21,7 +21,6 @@ def connect_to_database():
         print(f"Erreur de connexion à la base de données : {err}")
         return None
 
-
 def insert_message_into_db(emetteur, message):
     try:
         db_connection = connect_to_database()

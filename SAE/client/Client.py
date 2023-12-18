@@ -55,7 +55,6 @@ class ClientWindow(QMainWindow):
             except Exception as e:
                 self.received_messages.append(f"Une erreur s'est produite lors de la réception des messages : {e}")
                 break
-
     def send_message(self):
         message = self.input_field.text()
         try:

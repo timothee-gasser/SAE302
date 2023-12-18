@@ -33,7 +33,6 @@ def connection(message, ip_address):
         print("Error:", error)
         return False
 
-
 def main():
 
     msg = "/connect titi titi"
