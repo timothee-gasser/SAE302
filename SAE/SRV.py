@@ -1,10 +1,44 @@
 import socket
 import threading
+import mysql.connector
 from connect import connection
 
 server_running = True
 client_sockets = {}
 server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+# Fonction pour établir la connexion à la base de données
+def connect_to_database():
+    try:
+        db_connection = mysql.connector.connect(
+            host="192.168.0.6",
+            user="toto",
+            password="toto",
+            database="SAE302"
+        )
+        return db_connection
+    except mysql.connector.Error as err:
+        print(f"Erreur de connexion à la base de données : {err}")
+        return None
+
+
+def insert_message_into_db(emetteur, message):
+    try:
+        db_connection = connect_to_database()
+        if db_connection:
+            cursor = db_connection.cursor()
+
+            insert_query = "INSERT INTO Histo_msg (h_d_msg, emetteur, msg) VALUES (NOW(), %s, %s)"
+            data = (emetteur, message)
+            cursor.execute(insert_query, data)
+            db_connection.commit()
+            cursor.close()
+            db_connection.close()
+    except mysql.connector.Error as err:
+        print(f"Erreur lors de l'insertion du message : {err}")
+
+
+
 def handle_client(conn, address):
     global server_running
     authenticated = False
@@ -27,14 +61,12 @@ def handle_client(conn, address):
                 conn.close()
                 break
 
-
             elif not authenticated:
                 if data.startswith('/connect'):
                     credentials = data.split()[1:]
                     if len(credentials) == 2:
                         login, password = credentials
                         ip = address[0]
-
 
                         is_authenticated = connection(f"/connect {login} {password}", ip)
                         if is_authenticated:
@@ -53,12 +85,15 @@ def handle_client(conn, address):
 
             else:
                 print(f"Message du client {address}: {data}")
+                # Enregistrer le message dans la base de données
+                insert_message_into_db(user_login, data)
                 send_to_other_clients(f"{user_login}: {data}", conn)
 
         except Exception as e:
             print(f"Une erreur s'est produite : {e}")
             remove_client(conn)
             break
+
 
 def send_to_other_clients(message, sender_conn):
     for client_conn, address in client_sockets.items():

@@ -69,7 +69,7 @@ class ClientWindow(QMainWindow):
 
 
     def closeEvent(self, event):
-        self.quit_app()  # Appelé lorsque la fenêtre est fermée via la croix
+        self.quit_app()
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
