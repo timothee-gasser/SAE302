@@ -2,6 +2,7 @@ import socket
 import threading
 import mysql.connector
 from connect import connection
+from administration import kill
 
 server_running = True
 client_sockets = {}
@@ -81,10 +82,15 @@ def handle_client(conn, address):
                     conn.send("Please authenticate using /connect <login> <password>".encode())
                     remove_client(conn)
                     break
+            elif authenticated:
+                if data.startswith('/admin kill'):
+                    command_parts = data.split()
+                    if len(command_parts) == 3:
+                        _, _, username_to_kill = command_parts
+                        admin_action(conn, user_login, username_to_kill)
 
             else:
                 print(f"Message du client {address}: {data}")
-                # Enregistrer le message dans la base de données
                 insert_message_into_db(user_login, data)
                 send_to_other_clients(f"{user_login}: {data}", conn)
 
@@ -93,7 +99,16 @@ def handle_client(conn, address):
             remove_client(conn)
             break
 
-
+def admin_action(conn, admin_user, target_user):
+    try:
+        from administration import kill
+        result = kill(admin_user, target_user)
+        if result:
+            conn.send(f"Admin action performed successfully for '{target_user}'.".encode())
+        else:
+            conn.send(f"Unable to perform admin action for '{target_user}'.".encode())
+    except Exception as e:
+        conn.send(f"Error performing admin action: {e}".encode())
 def send_to_other_clients(message, sender_conn):
     for client_conn, address in client_sockets.items():
         if client_conn != sender_conn:
