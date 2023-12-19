@@ -7,6 +7,7 @@ from administration import kill
 server_running = True
 client_sockets = {}
 server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+client_connections = {}
 
 # Fonction pour établir la connexion à la base de données
 def connect_to_database():
@@ -89,10 +90,10 @@ def handle_client(conn, address):
                         _, _, username_to_kill = command_parts
                         admin_action(conn, user_login, username_to_kill)
 
-            else:
-                print(f"Message du client {address}: {data}")
-                insert_message_into_db(user_login, data)
-                send_to_other_clients(f"{user_login}: {data}", conn)
+                else:
+                    print(f"Message du client {address}: {data}")
+                    insert_message_into_db(user_login, data)
+                    send_to_other_clients(f"{user_login}: {data}", conn)
 
         except Exception as e:
             print(f"Une erreur s'est produite : {e}")
@@ -104,11 +105,19 @@ def admin_action(conn, admin_user, target_user):
         from administration import kill
         result = kill(admin_user, target_user)
         if result:
-            conn.send(f"Admin action performed successfully for '{target_user}'.".encode())
+            conn.send(f"Admin action performed successfully for '{target_user}'. Client will be disconnected.".encode())
+            for client_conn, address in client_sockets.items():
+                if address == target_user:
+                    remove_client(client_conn)
+                else:
+                    print("j'y arrive po")
+
         else:
             conn.send(f"Unable to perform admin action for '{target_user}'.".encode())
     except Exception as e:
         conn.send(f"Error performing admin action: {e}".encode())
+
+
 def send_to_other_clients(message, sender_conn):
     for client_conn, address in client_sockets.items():
         if client_conn != sender_conn:

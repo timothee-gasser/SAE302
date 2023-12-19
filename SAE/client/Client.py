@@ -2,6 +2,7 @@ import sys
 import socket
 import threading
 from PyQt6.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QWidget, QTextEdit, QLineEdit, QPushButton
+
 class ClientWindow(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -43,29 +44,36 @@ class ClientWindow(QMainWindow):
         except Exception as e:
             self.received_messages.append(f"Erreur lors de la connexion au serveur : {e}")
 
+        self.input_field.returnPressed.connect(self.send_message)  # Connecter l'événement de la touche "Entrée"
+
     def receive_messages(self):
         while True:
             try:
                 reply = self.client_socket.recv(1024).decode()
                 if not reply:
                     self.received_messages.append("Le serveur s'est déconnecté")
+                    self.quit_app()  # Appel à la fonction pour arrêter l'application
                     break
                 self.received_messages.append(reply)
 
             except Exception as e:
                 self.received_messages.append(f"Une erreur s'est produite lors de la réception des messages : {e}")
+                self.quit_app()  # Appel à la fonction pour arrêter l'application
                 break
+
     def send_message(self):
         message = self.input_field.text()
         try:
             self.client_socket.send(message.encode())
+            self.input_field.clear()  # Effacer le contenu de la zone de texte après l'envoi du message
 
         except Exception as e:
             self.received_messages.append(f"Une erreur s'est produite : {e}")
 
     def quit_app(self):
         self.client_socket.send("bye".encode())
-
+        self.client_socket.close()  # Fermeture du socket
+        QApplication.quit()  # Arrêt de l'application Qt
 
     def closeEvent(self, event):
         self.quit_app()
