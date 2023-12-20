@@ -1,10 +1,16 @@
-# administration.py
-
 import mysql.connector
+from datetime import datetime
 
-def kill(admin_user, target_user):
+def get_user_id(cursor, username):
+    query = "SELECT id_util FROM Utilisateur WHERE login = %s"
+    cursor.execute(query, (username,))
+    result = cursor.fetchone()
+    if result:
+        return result[0]
+    return None
+
+def kill(admin_user, target_user, reason):
     try:
-        # Connecter à la base de données
         db_connection = mysql.connector.connect(
             host='192.168.0.6',
             user='toto',
@@ -25,8 +31,21 @@ def kill(admin_user, target_user):
         target_result = cursor.fetchone()
 
         if admin_result and admin_result[0] == 'admin' and target_result and target_result[0] == 'connect':
-            db_connection.close()
-            return True
+            # Obtenir l'ID de l'utilisateur cible
+            target_user_id = get_user_id(cursor, target_user)
+            if target_user_id:
+                # Insérer les informations dans la table Killh
+                insert_query = "INSERT INTO Killh (id_util, raison_kill, d_h_kill) VALUES (%s, %s, %s)"
+                data = (target_user_id, reason, datetime.now())
+                cursor.execute(insert_query, data)
+                db_connection.commit()
+
+                db_connection.close()
+                return True
+            else:
+                print(f"Utilisateur '{target_user}' non trouvé.")
+                db_connection.close()
+                return False
         else:
             db_connection.close()
             return False

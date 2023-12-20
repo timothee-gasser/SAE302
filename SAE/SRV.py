@@ -7,9 +7,8 @@ from administration import kill
 server_running = True
 client_sockets = {}
 server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-client_connections = {}
+pseudo_to_address = {}
 
-# Fonction pour établir la connexion à la base de données
 def connect_to_database():
     try:
         db_connection = mysql.connector.connect(
@@ -71,10 +70,11 @@ def handle_client(conn, address):
 
                         is_authenticated = connection(f"/connect {login} {password}", ip)
                         if is_authenticated:
-                            conn.send("Successfully connected!".encode())
+                            conn.send("Bien jouer t'est co".encode())
                             print(f"Utilisateur {login} connecté depuis {ip}")
                             authenticated = True
                             user_login = login
+                            pseudo_to_address[user_login] = address
                         else:
                             conn.send("Authentication failed. Closing connection.".encode())
                             remove_client(conn)
@@ -84,11 +84,15 @@ def handle_client(conn, address):
                     remove_client(conn)
                     break
             elif authenticated:
+
                 if data.startswith('/admin kill'):
-                    command_parts = data.split()
-                    if len(command_parts) == 3:
-                        _, _, username_to_kill = command_parts
-                        admin_action(conn, user_login, username_to_kill)
+                    command_parts = data.split(
+                        maxsplit=3)  # Modifiez maxsplit à 3 pour obtenir les 3 parties de la commande
+                    if len(command_parts) >= 3:  # Vérifiez qu'il y a au moins 3 parties dans la commande
+                        _, _, username_to_kill, reason_to_kill = command_parts
+                        admin_action(conn, user_login, username_to_kill, reason_to_kill)
+                    else:
+                        conn.send("Invalid kill command format. Use: /admin kill <username> <reason>".encode())
 
                 else:
                     print(f"Message du client {address}: {data}")
@@ -100,17 +104,19 @@ def handle_client(conn, address):
             remove_client(conn)
             break
 
-def admin_action(conn, admin_user, target_user):
+def admin_action(conn, admin_user, target_user, reason=None):  # Ajoutez le paramètre reason
     try:
-        from administration import kill
-        result = kill(admin_user, target_user)
+        result = kill(admin_user, target_user, reason)  # Passez la raison à la fonction kill
         if result:
-            conn.send(f"Admin action performed successfully for '{target_user}'. Client will be disconnected.".encode())
-            for client_conn, address in client_sockets.items():
-                if address == target_user:
-                    remove_client(client_conn)
-                else:
-                    print("j'y arrive po")
+            conn.send(f"Tu à kill '{target_user}'.Il c'est fait déco.".encode())
+            for username, addr in pseudo_to_address.items():
+                if username == target_user:  # Vérifie si l'utilisateur est connecté
+                    for client_conn, client_addr in client_sockets.items():
+                        if client_addr == addr:  # Trouve la connexion correspondante
+                            remove_client(client_conn)  # Ferme la connexion
+                            break
+                    break
+
 
         else:
             conn.send(f"Unable to perform admin action for '{target_user}'.".encode())
