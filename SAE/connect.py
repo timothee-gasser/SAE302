@@ -1,5 +1,33 @@
 import mysql.connector
 
+def is_user_or_ip_banned(login, ip_address):
+    try:
+        db_connection = mysql.connector.connect(
+            host='192.168.0.6',
+            user='toto',
+            password='toto',
+            database='SAE302'
+        )
+        cursor = db_connection.cursor()
+
+        # Vérification du ban par nom d'utilisateur
+        user_ban_query = "SELECT id_util FROM Ban WHERE id_util = (SELECT id_util FROM Utilisateur WHERE login = %s)"
+        cursor.execute(user_ban_query, (login,))
+        user_ban = cursor.fetchone()
+
+        # Vérification du ban par adresse IP
+        ip_ban_query = "SELECT ban_ip FROM Ban WHERE ban_ip = %s"
+        cursor.execute(ip_ban_query, (ip_address,))
+        ip_ban = cursor.fetchone()
+
+        db_connection.close()
+
+        return user_ban or ip_ban  # Renvoie True si l'utilisateur ou l'IP est banni, False sinon
+
+    except mysql.connector.Error as error:
+        print("Error:", error)
+        return True  # Considérons par défaut que l'utilisateur/IP est banni en cas d'erreur
+
 def connection(message, ip_address):
     msg_split = message.split()
     if len(msg_split) != 3 or msg_split[0] != '/connect':
@@ -7,6 +35,11 @@ def connection(message, ip_address):
 
     login = msg_split[1]
     mdp = msg_split[2]
+
+    if is_user_or_ip_banned(login, ip_address):
+        print("le mec est ban mais y veux pas l'admaitre")
+        return False  # L'utilisateur ou l'IP est banni, donc la connexion est refusée
+
     try:
         db_connection = mysql.connector.connect(
             host='192.168.0.6',
@@ -34,9 +67,8 @@ def connection(message, ip_address):
         return False
 
 def main():
-
-    msg = "/connect titi titi"
-    ip = "192.168.1.3"
+    msg = "/connect ban_ip toto"
+    ip = "192.168.1.4"
 
     result = connection(msg, ip)
     print(result)

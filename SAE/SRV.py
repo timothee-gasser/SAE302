@@ -138,6 +138,7 @@ def send_to_other_clients(message, sender_conn):
 def remove_client(client_conn):
     if client_conn in client_sockets:
         del client_sockets[client_conn]
+
         client_conn.close()
 
 def start_server():
