@@ -2,7 +2,7 @@ import socket
 import threading
 import mysql.connector
 from connect import connection
-from administration import kill
+from administration import kill, ban
 
 server_running = True
 client_sockets = {}
@@ -94,6 +94,14 @@ def handle_client(conn, address):
                     else:
                         conn.send("Invalid kill command format. Use: /admin kill <username> <reason>".encode())
 
+                elif data.startswith('/admin ban'):
+                    command_parts = data.split(maxsplit=3)
+                    if len(command_parts) >= 3:
+                        _, _, user_to_ban, reason_to_ban = command_parts
+                        admin_ban_action(conn, user_login, user_to_ban, reason_to_ban)
+                    else:
+                        conn.send("Invalid ban command format. Use: /admin ban <username or ip> <reason>".encode())
+
                 else:
                     print(f"Message du client {address}: {data}")
                     insert_message_into_db(user_login, data)
@@ -103,7 +111,27 @@ def handle_client(conn, address):
             print(f"Une erreur s'est produite : {e}")
             remove_client(conn)
             break
+def admin_ban_action(conn, admin_user, target_user_or_ip, reason):
+    try:
+        # Appel de la fonction ban depuis administration.py
+        result = ban(admin_user, target_user_or_ip, reason, admin_user)
+        if result:
+            conn.send(f"User or IP '{target_user_or_ip}' has been banned.".encode())
+            if '@' not in target_user_or_ip:
+                for client_conn, address in client_sockets.items():
+                    if client_conn != conn and address[0] == target_user_or_ip:
+                        remove_client(client_conn)
+                        conn.send(f"User '{target_user_or_ip}' has been disconnected.".encode())
 
+            else:
+                for client_conn, address in client_sockets.items():
+                    if client_conn != conn and address[0] == target_user_or_ip:
+                        remove_client(client_conn)
+                        conn.send(f"All users using IP '{target_user_or_ip}' have been disconnected.".encode())
+        else:
+            conn.send(f"Unable to perform ban action for '{target_user_or_ip}'.".encode())
+    except Exception as e:
+        conn.send(f"Error performing ban action: {e}".encode())
 def admin_action(conn, admin_user, target_user, reason=None):  # Ajoutez le paramètre reason
     try:
         result = kill(admin_user, target_user, reason)  # Passez la raison à la fonction kill
