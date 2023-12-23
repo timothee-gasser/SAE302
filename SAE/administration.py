@@ -40,14 +40,30 @@ def get_user_name(cursor, user_id):
         return result[0]
     return "Utilisateur Inconnu"
 
+def sign_up(username, password):
+    try:
+        db_connection = connect_to_db()
+        if db_connection:
+            cursor = db_connection.cursor()
+
+            insert_query = "INSERT INTO Utilisateur (login, mdp, etat_util) VALUES (%s, %s, %s)"
+            data = (username, password, "connect")
+            cursor.execute(insert_query, data)
+
+            db_connection.commit()
+            db_connection.close()
+            return True
+
+    except mysql.connector.Error as error:
+        logs(f"Error:, {error}")
+        return False
+
 
 def kill(admin_user, target_user, reason):
     try:
         db_connection = connect_to_db()
         if db_connection:
             cursor = db_connection.cursor()
-
-            # Vérifier les autorisations de l'admin
             admin_privilege = check_admin_privileges(cursor, admin_user)
 
             target_query = "SELECT etat_util FROM Utilisateur WHERE login = %s"

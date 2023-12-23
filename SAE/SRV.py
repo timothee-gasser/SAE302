@@ -5,6 +5,7 @@ from connect import connection
 from administration import *
 import datetime
 
+sign_up_open = False
 server_running = True
 client_sockets = {}
 server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -80,6 +81,27 @@ def handle_client(conn, address):
                             conn.send("Authentication failed. Closing connection.".encode())
                             remove_client(conn)
                             break
+                elif data.startswith('/sign-up'):
+                    if sign_up_open:
+                        command_parts = data.split()
+                        if len(command_parts) == 3:
+                            ip = address[0]
+                            _, username, password = command_parts
+                            signup_result = sign_up(username, password)
+                            if signup_result:
+                                conn.send("Inscription réussie. Nouveau compte créé.".encode())
+                                conn.send("Bien jouer t'est co".encode())
+                                logs(f"Utilisateur {username} connecté depuis {ip}")
+                                authenticated = True
+                                user_login = username
+                                pseudo_to_address[user_login] = address
+                            else:
+                                conn.send("Erreur lors de l'inscription. Veuillez réessayer.".encode())
+                        else:
+                            conn.send("Format incorrect. Utilisation : /sign-up <nom_util> <mdp>".encode())
+                    else:
+                        conn.send("La création de compte sur ce serveur à était désactiver".encode())
+
                 else:
                     conn.send("Please authenticate using /connect <login> <password>".encode())
                     remove_client(conn)
@@ -223,12 +245,32 @@ def send_to_other_clients(message, sender_conn):
                 remove_client(client_conn)
 
 
+def update_user_status(username, status):
+    try:
+        db_connection = connect_to_database()
+        if db_connection:
+            cursor = db_connection.cursor()
+
+            update_query = "UPDATE Utilisateur SET etat_util = %s WHERE login = %s"
+            data = (status, username)
+            cursor.execute(update_query, data)
+            db_connection.commit()
+            cursor.close()
+            db_connection.close()
+    except mysql.connector.Error as err:
+        logs(f"Erreur lors de la mise à jour de l'état de l'utilisateur : {err}")
+
 
 def remove_client(client_conn):
     if client_conn in client_sockets:
-        del client_sockets[client_conn]
+        address = client_sockets[client_conn]
+        username = [user for user, addr in pseudo_to_address.items() if addr == address]
+        if username:
+            update_user_status(username[0], "deco")
 
+        del client_sockets[client_conn]
         client_conn.close()
+
 
 def start_server():
     host = '0.0.0.0'
