@@ -1,5 +1,6 @@
 import mysql.connector
-
+from datetime import datetime
+from administration import logs
 def is_user_or_ip_banned(login, ip_address):
     try:
         db_connection = mysql.connector.connect(
@@ -20,13 +21,18 @@ def is_user_or_ip_banned(login, ip_address):
         cursor.execute(ip_ban_query, (ip_address,))
         ip_ban = cursor.fetchone()
 
+        # Vérification de la table Kick
+        kick_query = "SELECT id_kick FROM Kick WHERE id_util = (SELECT id_util FROM Utilisateur WHERE login = %s) AND fin_kick > NOW()"
+        cursor.execute(kick_query, (login,))
+        kick_entry = cursor.fetchone()
+
         db_connection.close()
 
-        return user_ban or ip_ban  # Renvoie True si l'utilisateur ou l'IP est banni, False sinon
+        return user_ban or ip_ban or kick_entry
 
     except mysql.connector.Error as error:
-        print("Error:", error)
-        return True  # Considérons par défaut que l'utilisateur/IP est banni en cas d'erreur
+        logs("Error:", error)
+        return True
 
 def connection(message, ip_address):
     msg_split = message.split()
@@ -37,8 +43,8 @@ def connection(message, ip_address):
     mdp = msg_split[2]
 
     if is_user_or_ip_banned(login, ip_address):
-        print("le mec est ban mais y veux pas l'admaitre")
-        return False  # L'utilisateur ou l'IP est banni, donc la connexion est refusée
+        logs(f"{login}le mec est ban ou kick mais y veux pas l'admaitre")
+        return False
 
     try:
         db_connection = mysql.connector.connect(
@@ -63,7 +69,7 @@ def connection(message, ip_address):
         return False
 
     except mysql.connector.Error as error:
-        print("Error:", error)
+        logs("Error:", error)
         return False
 
 def main():
