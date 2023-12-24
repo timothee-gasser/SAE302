@@ -14,7 +14,8 @@ pseudo_to_address = {}
 def connect_to_database():
     try:
         db_connection = mysql.connector.connect(
-            host="192.168.0.6",
+            host="185.39.142.44",
+            port="3333",
             user="toto",
             password="toto",
             database="SAE302"
@@ -43,6 +44,8 @@ def insert_message_into_db(emetteur, message):
 
 def handle_client(conn, address):
     global server_running
+    global sign_up_open
+
     authenticated = False
     user_login = None
 
@@ -157,16 +160,77 @@ def handle_client(conn, address):
                         conn.send(
                             "Le format n'est pas bon. C'est : /admin ticket <id_demande> <etat_demande> <commentaire>".encode())
 
+                elif data.startswith('/admin sign-up'):
+                    command_parts = data.split(maxsplit=2)
+                    db_connection = connect_to_db()
+                    if db_connection:
+                        cursor = db_connection.cursor()
+                        if check_admin_privileges(cursor, user_login):
+                            if len(command_parts) >= 2:
+                                _, _, etat_sign = command_parts
+                                if etat_sign == "open":
+                                    sign_up_open= True
+                                    conn.send("Enregitrement de nouveaux utilisateur ouvert".encode())
+                                elif etat_sign == "close":
+                                    sign_up_open = False
+                                    conn.send("Enregitrement de nouveaux utilisateur fermer".encode())
+                                else:
+                                    conn.send("Cette comende accept uniquement 'open' et 'close'".encode())
+                            else:
+                                conn.send(
+                                    "Le format n'est pas bon. C'est : /admin sign-up <open-close>".encode())
+                        else:
+                            conn.send("Vous n'avez pas les autorisations nécessaires pour cette commande.".encode())
+                        db_connection.close()
+
+                elif data.lower() == '/help' or data.lower() == '/?':
+                    help_text = "Bienvenue sur le serveur de chat. Voici quelques commandes disponibles :\n" \
+                                "/help or /? : Affiche cette aide\n" \
+                                "/admin help or /admin ? : Affiche l'aide pour les admins\n" \
+                                "/demande <Type de demande> <Demande>: permet de créer des demande qui seront directement envoyer aux admin. Le type de demande est souvent Ban,Kick,Kill\n" \
+                                "/ticket : Permet de voire l'avencer de vos ticket (demande)\n" \
+                                "/sign-up <nom> <mot de passe>: Cette commende s'execute avant la connection. Elle permet de créer un nouveau compte."
+                    conn.send(help_text.encode())
+
+                elif data.lower() == '/admin help' or data.lower() == '/admin ?':
+                    db_connection = connect_to_db()
+                    if db_connection:
+                        cursor = db_connection.cursor()
+                        if check_admin_privileges(cursor, user_login):
+                            admin_help_text = "Bienvenue, je voit que tu est un admin, tu peux donc utiliser les commande suivante :\n" \
+                                              "/admin kill <username> <raison> : Pour tuer un utilisateur\n" \
+                                              "/admin ban <username or IP> <raison> : Pour bannir un utilisateur ou une IP\n" \
+                                              "/admin kick <username> <durée_en_min> <raison> : Pour expulser un utilisateur\n" \
+                                              "/admin demande : Pour voir les demandes\n" \
+                                              "/admin ticket <id_demande> <etat_demande> <commentaire> : Pour gérer les tickets\n"
+                            conn.send(admin_help_text.encode())
+                        else:
+                            conn.send("Vous n'avez pas les autorisations nécessaires pour cette commande.".encode())
+                        db_connection.close()
+
                 elif data.startswith('/ticket'):
                     user_tickets_info = user_tickets(user_login)
                     conn.send(user_tickets_info.encode())
+
+
+                elif data.startswith('/salon'):
+                    command_parts = data.split(maxsplit=2)
+                    if len(command_parts) >= 3:
+                        _, salon_name, salon_message = command_parts
+                        tagged_message = salon(user_login, salon_name, salon_message)
+                        if tagged_message.startswith(":"):
+                            send_to_other_clients(tagged_message, conn)
+                        else:
+                            conn.send(tagged_message.encode())
+                    else:
+                        conn.send("Le format n'est pas correct. Utilisation : /salon <nom_salon> <message>".encode())
 
 
 
                 else:
                     print(f"Message du client {address}: {data}")
                     insert_message_into_db(user_login, data)
-                    send_to_other_clients(f"{user_login}: {data}", conn)
+                    send_to_other_clients(f":general;{user_login}: {data}", conn)
 
         except Exception as e:
             logs(f"Une erreur s'est produite : {e}")
@@ -193,7 +257,7 @@ def admin_kick_action(conn, admin_user, target_user, duree, reason):
 def admin_ban_action(conn, admin_user, target_user_or_ip, reason):
     global client_sockets, pseudo_to_address
     try:
-        result = ban(admin_user, target_user_or_ip, reason, admin_user)
+        result = ban(admin_user, target_user_or_ip, reason)
         if result:
             conn.send(f"Utilisateur ou IP '{target_user_or_ip}' est banni.".encode())
 

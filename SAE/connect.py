@@ -4,7 +4,8 @@ from administration import logs
 def is_user_or_ip_banned(login, ip_address):
     try:
         db_connection = mysql.connector.connect(
-            host='192.168.0.6',
+            host="185.39.142.44",
+            port="3333",
             user='toto',
             password='toto',
             database='SAE302'
@@ -31,7 +32,7 @@ def is_user_or_ip_banned(login, ip_address):
         return user_ban or ip_ban or kick_entry
 
     except mysql.connector.Error as error:
-        logs("Error:", error)
+        logs(f"Error:, {error}")
         return True
 
 def connection(message, ip_address):
@@ -48,7 +49,8 @@ def connection(message, ip_address):
 
     try:
         db_connection = mysql.connector.connect(
-            host='192.168.0.6',
+            host="185.39.142.44",
+            port="3333",
             user='toto',
             password='toto',
             database='SAE302'
@@ -69,7 +71,7 @@ def connection(message, ip_address):
         return False
 
     except mysql.connector.Error as error:
-        logs("Error:", error)
+        logs(f"Error:, {error}")
         return False
 
 def main():

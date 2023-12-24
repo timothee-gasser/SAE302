@@ -5,7 +5,8 @@ from datetime import datetime, timedelta
 def connect_to_db():
     try:
         db_connection = mysql.connector.connect(
-            host='192.168.0.6',
+            host="185.39.142.44",
+            port="3333",
             user='toto',
             password='toto',
             database='SAE302'
@@ -31,6 +32,47 @@ def get_user_id(cursor, username):
     if result:
         return result[0]
     return None
+def check_user_in_salon(cursor, user_id, salon_id):
+    query = "SELECT id_salon FROM Salon WHERE id_salon = %s AND FIND_IN_SET(%s, id_membre)"
+    cursor.execute(query, (salon_id, user_id))
+    result = cursor.fetchone()
+    if result:
+        return True
+    return False
+def get_salon_id(cursor, salon_name):
+    query = "SELECT id_salon FROM Salon WHERE nom_salon = %s"
+    cursor.execute(query, (salon_name,))
+    result = cursor.fetchone()
+    if result:
+        return result[0]
+    return None
+
+def salon(admin_user, salon_name, message):
+    try:
+        db_connection = connect_to_db()
+        if db_connection:
+            cursor = db_connection.cursor()
+
+            salon_id = get_salon_id(cursor, salon_name)
+            if salon_id:
+                user_id = get_user_id(cursor, admin_user)
+                if user_id and check_user_in_salon(cursor, user_id, salon_id):
+                    tagged_message = f":{salon_name};{message}"
+                    db_connection.close()
+                    return tagged_message
+                else:
+                    logs(f"L'utilisateur '{admin_user}' n'est pas autorisé à envoyer dans le salon '{salon_name}'.")
+                    db_connection.close()
+                    return "Vous n'êtes pas autorisé à envoyer des messages dans ce salon."
+
+            else:
+                logs(f"Salon '{salon_name}' non trouvé.")
+                db_connection.close()
+                return "Le salon spécifié n'existe pas."
+
+    except mysql.connector.Error as error:
+        logs(f"Error: {error}")
+        return "Une erreur s'est produite lors de la vérification du salon."
 
 def get_user_name(cursor, user_id):
     query = "SELECT login FROM Utilisateur WHERE id_util = %s"
@@ -275,7 +317,7 @@ def user_tickets(user_name):
             user_tickets_message = ""
             if demandes:
                 for demande in demandes:
-                    demande_message = f":Demande : N°Demande:{demande[0]}       Utilisateur: {user_name}       Type: {demande[1]}       Demande:{demande[5]}       Le, à:{demande[3]}       Etat:{demande[4]}       Comentaire admin:{demande[6]} \n"
+                    demande_message = f":Demande : N°Demande:{demande[0]}       Type: {demande[1]}       Demande:{demande[5]}       Le, à:{demande[3]}       Etat:{demande[4]}       Comentaire admin:{demande[6]} \n"
                     user_tickets_message += demande_message
 
                 db_connection.close()
