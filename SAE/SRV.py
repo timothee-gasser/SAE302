@@ -25,23 +25,29 @@ def connect_to_database():
         logs(f"Erreur de connexion à la base de données : {err}")
         return None
 
-def insert_message_into_db(emetteur, message):
+def insert_message_into_db(emetteur, message, name_salon=None):
     try:
         db_connection = connect_to_database()
         if db_connection:
             cursor = db_connection.cursor()
+            if name_salon == None:
+                insert_query = "INSERT INTO Histo_msg (h_d_msg, emetteur, msg) VALUES (NOW(), %s, %s)"
+                data = (emetteur, message)
+                cursor.execute(insert_query, data)
+                db_connection.commit()
+                cursor.close()
+                db_connection.close()
+            else:
+                id_salon = get_salon_id(cursor, name_salon)
+                insert_query = "INSERT INTO Histo_msg (h_d_msg, emetteur, msg, id_salon) VALUES (NOW(), %s, %s, %s)"
+                data = (emetteur, message,id_salon)
+                cursor.execute(insert_query, data)
+                db_connection.commit()
+                cursor.close()
+                db_connection.close()
 
-            insert_query = "INSERT INTO Histo_msg (h_d_msg, emetteur, msg) VALUES (NOW(), %s, %s)"
-            data = (emetteur, message)
-            cursor.execute(insert_query, data)
-            db_connection.commit()
-            cursor.close()
-            db_connection.close()
     except mysql.connector.Error as err:
         logs(f"Erreur lors de l'insertion du message : {err}")
-
-
-
 def handle_client(conn, address):
     global server_running
     global sign_up_open
@@ -52,12 +58,10 @@ def handle_client(conn, address):
     while server_running:
         try:
             data = conn.recv(1024).decode()
-
             if not data:
                 logs(f"Le client {address} s'est déconnecté")
                 remove_client(conn)
                 break
-
             if data.lower() == 'bye':
                 bye = "ok bye"
                 conn.send(bye.encode())
@@ -65,7 +69,6 @@ def handle_client(conn, address):
                 remove_client(conn)
                 conn.close()
                 break
-
             elif not authenticated:
                 if data.startswith('/connect'):
                     credentials = data.split()[1:]
@@ -110,7 +113,7 @@ def handle_client(conn, address):
                     remove_client(conn)
                     break
             elif authenticated:
-
+                insert_message_into_db(user_login, data)
                 if data.startswith('/admin kill'):
                     command_parts = data.split(maxsplit=3)
                     if len(command_parts) >= 3:
@@ -118,7 +121,6 @@ def handle_client(conn, address):
                         admin_action(conn, user_login, username_to_kill, reason_to_kill)
                     else:
                         conn.send("Le format n'est pas bon. C'est : /admin kill <nom> <raison>".encode())
-
                 elif data.startswith('/admin ban'):
                     command_parts = data.split(maxsplit=3)
                     if len(command_parts) >= 3:
@@ -126,7 +128,6 @@ def handle_client(conn, address):
                         admin_ban_action(conn, user_login, user_to_ban, reason_to_ban)
                     else:
                         conn.send("Le format n'est pas bon. C'est : /admin ban <nom ou ip> <raison>".encode())
-
                 elif data.startswith('/admin kick'):
                     command_parts = data.split(maxsplit=4)
                     if len(command_parts) >= 4:
@@ -135,6 +136,35 @@ def handle_client(conn, address):
                     else:
                         conn.send(
                             "Le format n'est pas bon. C'est : /admin kick <nom_utilisateur> <durée_en_min> <raison>".encode())
+                elif data.startswith('/demande_salon'):
+                    command_parts = data.split(maxsplit=2)
+                    if len(command_parts) >= 2:
+                        _, salon_name, raison = command_parts
+                        result = demande_salon(user_login, salon_name, raison)
+                        if result == "success":
+                            conn.send("Demande de salon enregistrée avec succès.".encode())
+                        elif result == "open":
+                            conn.send("Vous avez été ajouté au salon.".encode())
+                        elif result == "closed":
+                            conn.send("Le salon est fermé, demande enregistrée.".encode())
+                        else:
+                            conn.send("Impossible de traiter la demande de salon.".encode())
+                    else:
+                        conn.send("Format incorrect. Utilisation : /demande_salon <nom_salon> <raison>".encode())
+                elif data.startswith('/admin demande_salon_update'):
+                    command_parts = data.split(maxsplit=3)
+                    if len(command_parts) >= 3:
+                        _, _, id_demande_salon, etat_demande_salon = command_parts
+                        success = demande_salon_update(user_login, id_demande_salon, etat_demande_salon)
+                        if success:
+                            conn.send("Demande de salon mise à jour avec succès.".encode())
+                        else:
+                            conn.send("Échec de la mise à jour de la demande de salon.".encode())
+                    else:
+                        conn.send(
+                            "Le format n'est pas bon. C'est : /admin demande_salon_update <id_demande_salon> <etat_demande_salon(yes or no)>".encode())
+                elif data.startswith('/admin demande_salon'):
+                    admin_demande_salon(user_login, conn)
                 elif data.startswith('/demande'):
                     command_parts = data.split(maxsplit=2)
                     if len(command_parts) >= 3:
@@ -143,10 +173,8 @@ def handle_client(conn, address):
                         conn.send("Demande enregistrée avec succès.".encode())
                     else:
                         conn.send("Le format n'est pas bon. C'est : /demande <type_de_demande> <demande>".encode())
-
                 elif data.startswith('/admin demande'):
                     admin_demande(user_login, conn)
-
                 elif data.startswith('/admin ticket'):
                     command_parts = data.split(maxsplit=4)
                     if len(command_parts) >= 4:
@@ -159,7 +187,6 @@ def handle_client(conn, address):
                     else:
                         conn.send(
                             "Le format n'est pas bon. C'est : /admin ticket <id_demande> <etat_demande> <commentaire>".encode())
-
                 elif data.startswith('/admin sign-up'):
                     command_parts = data.split(maxsplit=2)
                     db_connection = connect_to_db()
@@ -182,7 +209,6 @@ def handle_client(conn, address):
                         else:
                             conn.send("Vous n'avez pas les autorisations nécessaires pour cette commande.".encode())
                         db_connection.close()
-
                 elif data.lower() == '/help' or data.lower() == '/?':
                     help_text = "Bienvenue sur le serveur de chat. Voici quelques commandes disponibles :\n" \
                                 "/help or /? : Affiche cette aide\n" \
@@ -191,7 +217,6 @@ def handle_client(conn, address):
                                 "/ticket : Permet de voire l'avencer de vos ticket (demande)\n" \
                                 "/sign-up <nom> <mot de passe>: Cette commende s'execute avant la connection. Elle permet de créer un nouveau compte."
                     conn.send(help_text.encode())
-
                 elif data.lower() == '/admin help' or data.lower() == '/admin ?':
                     db_connection = connect_to_db()
                     if db_connection:
@@ -207,31 +232,24 @@ def handle_client(conn, address):
                         else:
                             conn.send("Vous n'avez pas les autorisations nécessaires pour cette commande.".encode())
                         db_connection.close()
-
                 elif data.startswith('/ticket'):
                     user_tickets_info = user_tickets(user_login)
                     conn.send(user_tickets_info.encode())
-
-
                 elif data.startswith('/salon'):
                     command_parts = data.split(maxsplit=2)
                     if len(command_parts) >= 3:
                         _, salon_name, salon_message = command_parts
                         tagged_message = salon(user_login, salon_name, salon_message)
                         if tagged_message.startswith(":"):
-                            send_to_other_clients(tagged_message, conn)
+                            insert_message_into_db(user_login,salon_message, salon_name)
+                            send_to_salon_members(tagged_message, user_login, salon_name)
                         else:
                             conn.send(tagged_message.encode())
                     else:
                         conn.send("Le format n'est pas correct. Utilisation : /salon <nom_salon> <message>".encode())
-
-
-
                 else:
                     print(f"Message du client {address}: {data}")
-                    insert_message_into_db(user_login, data)
                     send_to_other_clients(f":general;{user_login}: {data}", conn)
-
         except Exception as e:
             logs(f"Une erreur s'est produite : {e}")
             remove_client(conn)
@@ -253,7 +271,6 @@ def admin_kick_action(conn, admin_user, target_user, duree, reason):
             conn.send(f"Impossible d'effectuer l'action de kick pour '{target_user}'.".encode())
     except Exception as e:
         conn.send(f"Erreur lors de l'action de kick : {e}".encode())
-
 def admin_ban_action(conn, admin_user, target_user_or_ip, reason):
     global client_sockets, pseudo_to_address
     try:
@@ -278,17 +295,16 @@ def admin_ban_action(conn, admin_user, target_user_or_ip, reason):
             conn.send(f"Impossible d'effectuer l'action de bannissement pour '{target_user_or_ip}'.".encode())
     except Exception as e:
         conn.send(f"Erreur lors de l'action de bannissement : {e}".encode())
-
 def admin_action(conn, admin_user, target_user, reason=None):  # Ajoutez le paramètre reason
     try:
         result = kill(admin_user, target_user, reason)  # Passez la raison à la fonction kill
         if result:
             conn.send(f"Tu à kill '{target_user}'.Il c'est fait déco.".encode())
             for username, addr in pseudo_to_address.items():
-                if username == target_user:  # Vérifie si l'utilisateur est connecté
+                if username == target_user:
                     for client_conn, client_addr in client_sockets.items():
-                        if client_addr == addr:  # Trouve la connexion correspondante
-                            remove_client(client_conn)  # Ferme la connexion
+                        if client_addr == addr:
+                            remove_client(client_conn)
                             break
                     break
 
@@ -297,8 +313,6 @@ def admin_action(conn, admin_user, target_user, reason=None):  # Ajoutez le para
             conn.send(f"Unable to perform admin action for '{target_user}'.".encode())
     except Exception as e:
         conn.send(f"Error performing admin action: {e}".encode())
-
-
 def send_to_other_clients(message, sender_conn):
     for client_conn, address in client_sockets.items():
         if client_conn != sender_conn:
@@ -307,8 +321,31 @@ def send_to_other_clients(message, sender_conn):
             except Exception as e:
                 logs(f"Erreur lors de l'envoi du message aux clients : {e}")
                 remove_client(client_conn)
+def send_to_salon_members(message, sender_username, salon_name):
+    try:
+        db_connection = connect_to_database()
+        if db_connection:
+            cursor = db_connection.cursor()
 
+            salon_members = get_salon_members(cursor, salon_name)
+            sender_id = get_user_id(cursor, sender_username)
 
+            for username, address in pseudo_to_address.items():
+                member_id = get_user_id(cursor, username)  # Obtenez l'ID de l'utilisateur
+                if member_id in salon_members and member_id != sender_id:
+                    try:
+                        client_conn = [conn for conn, addr in client_sockets.items() if addr == address][0]
+                        client_conn.send(message.encode())
+
+                    except Exception as e:
+                        logs(f"Erreur lors de l'envoi du message aux clients : {e}")
+                        remove_client(client_conn)
+
+            db_connection.close()
+
+    except mysql.connector.Error as error:
+        logs(f"Error: {error}")
+        return "Une erreur s'est produite lors de l'envoi du message dans le salon."
 def update_user_status(username, status):
     try:
         db_connection = connect_to_database()
@@ -323,8 +360,6 @@ def update_user_status(username, status):
             db_connection.close()
     except mysql.connector.Error as err:
         logs(f"Erreur lors de la mise à jour de l'état de l'utilisateur : {err}")
-
-
 def remove_client(client_conn):
     if client_conn in client_sockets:
         address = client_sockets[client_conn]
@@ -334,8 +369,6 @@ def remove_client(client_conn):
 
         del client_sockets[client_conn]
         client_conn.close()
-
-
 def start_server():
     host = '0.0.0.0'
     port = 12345

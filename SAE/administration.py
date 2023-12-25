@@ -1,7 +1,5 @@
 import mysql.connector
 from datetime import datetime, timedelta
-
-
 def connect_to_db():
     try:
         db_connection = mysql.connector.connect(
@@ -15,8 +13,6 @@ def connect_to_db():
     except mysql.connector.Error as error:
         logs(f"Error:, {error}")
         return None
-
-# Fonction pour vérifier les autorisations de l'admin
 def check_admin_privileges(cursor, admin_user):
     admin_query = "SELECT type_util FROM Utilisateur WHERE login = %s"
     cursor.execute(admin_query, (admin_user,))
@@ -24,14 +20,6 @@ def check_admin_privileges(cursor, admin_user):
     if admin_result and admin_result[0] == 'admin':
         return True
     return False
-
-def get_user_id(cursor, username):
-    query = "SELECT id_util FROM Utilisateur WHERE login = %s"
-    cursor.execute(query, (username,))
-    result = cursor.fetchone()
-    if result:
-        return result[0]
-    return None
 def check_user_in_salon(cursor, user_id, salon_id):
     query = "SELECT id_salon FROM Salon WHERE id_salon = %s AND FIND_IN_SET(%s, id_membre)"
     cursor.execute(query, (salon_id, user_id))
@@ -39,6 +27,13 @@ def check_user_in_salon(cursor, user_id, salon_id):
     if result:
         return True
     return False
+def get_user_id(cursor, username):
+    query = "SELECT id_util FROM Utilisateur WHERE login = %s"
+    cursor.execute(query, (username,))
+    result = cursor.fetchone()
+    if result:
+        return result[0]
+    return None
 def get_salon_id(cursor, salon_name):
     query = "SELECT id_salon FROM Salon WHERE nom_salon = %s"
     cursor.execute(query, (salon_name,))
@@ -46,34 +41,22 @@ def get_salon_id(cursor, salon_name):
     if result:
         return result[0]
     return None
-
-def salon(admin_user, salon_name, message):
-    try:
-        db_connection = connect_to_db()
-        if db_connection:
-            cursor = db_connection.cursor()
-
-            salon_id = get_salon_id(cursor, salon_name)
-            if salon_id:
-                user_id = get_user_id(cursor, admin_user)
-                if user_id and check_user_in_salon(cursor, user_id, salon_id):
-                    tagged_message = f":{salon_name};{message}"
-                    db_connection.close()
-                    return tagged_message
-                else:
-                    logs(f"L'utilisateur '{admin_user}' n'est pas autorisé à envoyer dans le salon '{salon_name}'.")
-                    db_connection.close()
-                    return "Vous n'êtes pas autorisé à envoyer des messages dans ce salon."
-
-            else:
-                logs(f"Salon '{salon_name}' non trouvé.")
-                db_connection.close()
-                return "Le salon spécifié n'existe pas."
-
-    except mysql.connector.Error as error:
-        logs(f"Error: {error}")
-        return "Une erreur s'est produite lors de la vérification du salon."
-
+def get_salon_name(cursor, salon_id):
+    query = "SELECT nom_salon FROM Salon WHERE id_salon = %s"
+    cursor.execute(query, (salon_id,))
+    result = cursor.fetchone()
+    if result:
+        return result[0]
+    return None
+def get_salon_members(cursor, salon_name):
+    query = "SELECT id_membre FROM Salon WHERE nom_salon = %s"
+    cursor.execute(query, (salon_name,))
+    result = cursor.fetchone()
+    if result:
+        members_string = result[0]
+        if members_string:
+            return [int(member) for member in members_string.split(',')]
+    return []
 def get_user_name(cursor, user_id):
     query = "SELECT login FROM Utilisateur WHERE id_util = %s"
     cursor.execute(query, (user_id,))
@@ -81,7 +64,26 @@ def get_user_name(cursor, user_id):
     if result:
         return result[0]
     return "Utilisateur Inconnu"
+def salon(user_login, salon_name, salon_message):
+    try:
+        db_connection = connect_to_db()
+        if db_connection:
+            cursor = db_connection.cursor()
 
+            user_id = get_user_id(cursor, user_login)
+            if user_id:
+                salon_members = get_salon_members(cursor, salon_name)
+                if user_id in salon_members:
+                    tagged_message = f":{salon_name};{user_login}:{salon_message}"
+                    db_connection.close()
+                    return tagged_message
+                else:
+                    db_connection.close()
+                    return "Vous n'êtes pas autorisé à envoyer des messages dans ce salon."
+
+    except mysql.connector.Error as error:
+        logs(f"Error: {error}")
+        return "Une erreur s'est produite lors de la vérification du salon."
 def sign_up(username, password):
     try:
         db_connection = connect_to_db()
@@ -99,8 +101,6 @@ def sign_up(username, password):
     except mysql.connector.Error as error:
         logs(f"Error:, {error}")
         return False
-
-
 def kill(admin_user, target_user, reason):
     try:
         db_connection = connect_to_db()
@@ -132,7 +132,6 @@ def kill(admin_user, target_user, reason):
     except mysql.connector.Error as error:
         logs(f"Error:, {error}")
         return False
-
 def ban(admin_user, ban_target, reason):
     try:
         db_connection = connect_to_db()
@@ -202,7 +201,6 @@ def kick(admin_user, target_user, duration_minutes, reason):
     except mysql.connector.Error as error:
         logs(f"Error:, {error}")
         return False
-
 def demande(admin_user, type_demande, demande_text):
     try:
         db_connection = connect_to_db()
@@ -229,7 +227,6 @@ def demande(admin_user, type_demande, demande_text):
     except mysql.connector.Error as error:
         logs(f"Error: {error}")
         return False
-
 def admin_demande(admin_user, conn):
     try:
         db_connection = connect_to_db()
@@ -262,7 +259,82 @@ def admin_demande(admin_user, conn):
     except mysql.connector.Error as error:
         logs(f"Error:, {error}")
         conn.send("Une erreur s'est produite lors de la récupération des demandes.".encode())
+def admin_demande_salon(admin_user, conn):
+    try:
+        db_connection = connect_to_db()
+        if db_connection:
+            cursor = db_connection.cursor()
 
+            if check_admin_privileges(cursor, admin_user):
+                select_query = "SELECT * FROM Demande_salon"
+                cursor.execute(select_query)
+                demande_salon_results = cursor.fetchall()
+
+                if demande_salon_results:
+                    demande_salon_message = ": Demande: \n"
+                    for demande in demande_salon_results:
+                        user_id = demande[1]
+                        user_name = get_user_name(cursor,user_id)
+                        salon_id = demande[2]
+                        name_salon = get_salon_name(cursor, salon_id )
+                        demande_salon_message += f"N°Demande:{demande[0]}       Utilisateur: {user_name}       Salon: {name_salon}       Raison: {demande[4]}       Etat: {demande[3]} \n"
+                    conn.send(demande_salon_message.encode())
+                else:
+                    conn.send("Aucune demande de salon enregistrée.".encode())
+
+            else:
+                conn.send("Vous n'avez pas les autorisations nécessaires pour cette commande.".encode())
+
+            cursor.close()
+            db_connection.close()
+        else:
+            conn.send("Impossible de se connecter à la base de données.".encode())
+
+    except mysql.connector.Error as error:
+        logs(f"Error:, {error}")
+        conn.send("Une erreur s'est produite lors de la récupération des demandes.".encode())
+def demande_salon_update(admin_user, id_demande_salon, etat_demande_salon):
+    try:
+        db_connection = connect_to_db()
+        if db_connection:
+            cursor = db_connection.cursor()
+
+            if check_admin_privileges(cursor, admin_user):
+                select_query = "SELECT id_util, id_salon FROM Demande_salon WHERE id_dsalon = %s"
+                cursor.execute(select_query, (id_demande_salon,))
+                demande_salon_result = cursor.fetchone()
+                if demande_salon_result:
+                    if etat_demande_salon == "yes" :
+                        update_query = "UPDATE Demande_salon SET etat_dsalon = %s WHERE id_dsalon = %s"
+                        cursor.execute(update_query, (etat_demande_salon, id_demande_salon))
+                        db_connection.commit()
+                        user_id_dsalon = demande_salon_result[0]
+                        salon_id = demande_salon_result[1]
+                        if user_id_dsalon:
+                            add_member_query = "UPDATE Salon SET id_membre = CONCAT(id_membre, %s) WHERE id_salon = %s"
+                            cursor.execute(add_member_query, (f',{user_id_dsalon}', salon_id))
+                            db_connection.commit()
+                            db_connection.close()
+                        return True
+                    elif etat_demande_salon == "no":
+                        update_query = "UPDATE Demande_salon SET etat_dsalon = %s WHERE id_dsalon = %s"
+                        cursor.execute(update_query, (etat_demande_salon, id_demande_salon))
+                        db_connection.commit()
+                        db_connection.close()
+                        return True
+                    else:
+                        logs(f"Demande avec un argument autre que yes ou ok")
+                else:
+                    logs(f"Demande avec l'ID {id_demande_salon} non trouvée.")
+            else:
+                logs(f"{admin_user}: Vous n'avez pas les autorisations nécessaires pour cette commande.")
+
+            db_connection.close()
+            return False
+
+    except mysql.connector.Error as error:
+        logs(f"Error:, {error}")
+        return False
 def ticket(admin_user, id_demande, etat_demande, commentaire):
     try:
         db_connection = connect_to_db()
@@ -275,7 +347,6 @@ def ticket(admin_user, id_demande, etat_demande, commentaire):
                 demande_result = cursor.fetchone()
 
                 if demande_result:
-                    ancien_etat = demande_result[0]
                     ancien_commentaire = demande_result[1]
 
                     new_commentaire = f"Admin :{admin_user}   Le, à: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}     Commentaire:{commentaire}"
@@ -299,9 +370,6 @@ def ticket(admin_user, id_demande, etat_demande, commentaire):
     except mysql.connector.Error as error:
         logs(f"Error:, {error}")
         return False
-
-
-
 def user_tickets(user_name):
     try:
         db_connection = connect_to_db()
@@ -329,10 +397,48 @@ def user_tickets(user_name):
     except mysql.connector.Error as error:
         logs(f"Error:, {error}")
         return "Une erreur s'est produite lors de la récupération des demandes."
+def demande_salon(user_login, salon_name, raison):
+    try:
+        db_connection = connect_to_db()
 
+        if db_connection:
+            cursor = db_connection.cursor()
 
+            salon_query = "SELECT id_salon, type_salon FROM Salon WHERE nom_salon = %s"
+            cursor.execute(salon_query, (salon_name,))
+            salon_result = cursor.fetchone()
+            print(salon_result)
+            if salon_result:
+                salon_id, salon_type = salon_result
+                print(salon_id,salon_type)
 
+                if salon_type == "open":
+                    user_id = get_user_id(cursor, user_login)
+                    if user_id:
+                        add_member_query = "UPDATE Salon SET id_membre = CONCAT(id_membre, %s) WHERE id_salon = %s"
+                        cursor.execute(add_member_query, (f',{user_id}', salon_id))
+                        db_connection.commit()
+                        db_connection.close()
+                        return "open"
+                elif salon_type == 'close':
+                    if raison:
+                        user_id = get_user_id(cursor, user_login)
+                        if user_id:
+                            demande_query = "INSERT INTO Demande_salon (id_util, id_salon, etat_dsalon, raison_dsalon) VALUES (%s, %s, %s, %s)"
+                            cursor.execute(demande_query, (user_id, salon_id, 'attente', raison))
+                            db_connection.commit()
+                            db_connection.close()
+                            return "closed"
+                    else:
+                        db_connection.close()
+                        return "reason_required"
 
+            db_connection.close()
+            return "success"
+
+    except mysql.connector.Error as error:
+        logs(f"Error: {error}")
+        return "failure"
 def log_to_database(log_message):
     try:
         db_connection = connect_to_db()
@@ -349,7 +455,6 @@ def log_to_database(log_message):
             db_connection.close()
     except mysql.connector.Error as err:
         print(f"Erreur lors de l'insertion des logs dans la base de données : {err}")
-
 def logs(message):
     print(message)
     log_to_database(message)

@@ -34,7 +34,6 @@ def is_user_or_ip_banned(login, ip_address):
     except mysql.connector.Error as error:
         logs(f"Error:, {error}")
         return True
-
 def connection(message, ip_address):
     msg_split = message.split()
     if len(msg_split) != 3 or msg_split[0] != '/connect':
@@ -73,13 +72,11 @@ def connection(message, ip_address):
     except mysql.connector.Error as error:
         logs(f"Error:, {error}")
         return False
-
 def main():
     msg = "/connect ban_ip toto"
     ip = "192.168.1.4"
 
     result = connection(msg, ip)
     print(result)
-
 if __name__ == "__main__":
     main()
