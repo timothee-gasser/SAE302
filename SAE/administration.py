@@ -370,6 +370,38 @@ def ticket(admin_user, id_demande, etat_demande, commentaire):
     except mysql.connector.Error as error:
         logs(f"Error:, {error}")
         return False
+def liste_salons(user_id):
+    try:
+        db_connection = connect_to_db()
+        if db_connection:
+            cursor = db_connection.cursor()
+
+            query = "SELECT nom_salon, type_salon, id_membre FROM Salon"
+            cursor.execute(query)
+            result = cursor.fetchall()
+
+            if result:
+                salon_list = []
+                for row in result:
+                    nom_salon = row[0]
+                    etat_salon = row[1]
+                    membres = [int(member) for member in row[2].split(',') if member]
+
+                    if user_id in membres:
+                        salon_list.append(f":{nom_salon};{etat_salon};True")
+                    else:
+                        salon_list.append(f":{nom_salon};{etat_salon};False")
+
+                db_connection.close()
+                return "|".join(salon_list)
+            else:
+                db_connection.close()
+                return "Aucun salon trouvé."
+
+    except mysql.connector.Error as error:
+        logs(f"Erreur lors de la récupération de la liste des salons : {error}")
+        return "Une erreur s'est produite lors de la récupération de la liste des salons."
+
 def user_tickets(user_name):
     try:
         db_connection = connect_to_db()

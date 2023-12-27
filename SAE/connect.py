@@ -1,6 +1,6 @@
 import mysql.connector
 from datetime import datetime
-from administration import logs
+from administration import logs, check_admin_privileges
 def is_user_or_ip_banned(login, ip_address):
     try:
         db_connection = mysql.connector.connect(
@@ -43,7 +43,7 @@ def connection(message, ip_address):
     mdp = msg_split[2]
 
     if is_user_or_ip_banned(login, ip_address):
-        logs(f"{login}le mec est ban ou kick mais y veux pas l'admaitre")
+        logs(f"{login} est banni ou kické mais ne veut pas l'admettre")
         return False
 
     try:
@@ -62,15 +62,21 @@ def connection(message, ip_address):
         if user:
             update_query = "UPDATE Utilisateur SET last_ip = %s, etat_util = 'connect' WHERE login = %s"
             cursor.execute(update_query, (ip_address, login))
+
+
+            if check_admin_privileges(cursor, login):  # Utilisation de la fonction check_admin_privileges
+                return "admin"
+            else:
+                return "co"
+
             db_connection.commit()
             db_connection.close()
-            return True
 
         db_connection.close()
         return False
 
     except mysql.connector.Error as error:
-        logs(f"Error:, {error}")
+        logs(f"Error: {error}")
         return False
 def main():
     msg = "/connect ban_ip toto"

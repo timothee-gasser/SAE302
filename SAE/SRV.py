@@ -5,7 +5,7 @@ from connect import connection
 from administration import *
 import datetime
 
-sign_up_open = False
+sign_up_open = True
 server_running = True
 client_sockets = {}
 server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -78,7 +78,10 @@ def handle_client(conn, address):
 
                         is_authenticated = connection(f"/connect {login} {password}", ip)
                         if is_authenticated:
-                            conn.send("Bien jouer t'est co".encode())
+                            if is_authenticated == "admin":
+                                conn.send("admin".encode())
+                            else:
+                                conn.send("co".encode())
                             logs(f"Utilisateur {login} connecté depuis {ip}")
                             authenticated = True
                             user_login = login
@@ -87,6 +90,7 @@ def handle_client(conn, address):
                             conn.send("Authentication failed. Closing connection.".encode())
                             remove_client(conn)
                             break
+
                 elif data.startswith('/sign-up'):
                     if sign_up_open:
                         command_parts = data.split()
@@ -95,8 +99,8 @@ def handle_client(conn, address):
                             _, username, password = command_parts
                             signup_result = sign_up(username, password)
                             if signup_result:
+                                conn.send("co".encode())
                                 conn.send("Inscription réussie. Nouveau compte créé.".encode())
-                                conn.send("Bien jouer t'est co".encode())
                                 logs(f"Utilisateur {username} connecté depuis {ip}")
                                 authenticated = True
                                 user_login = username
@@ -173,6 +177,20 @@ def handle_client(conn, address):
                         conn.send("Demande enregistrée avec succès.".encode())
                     else:
                         conn.send("Le format n'est pas bon. C'est : /demande <type_de_demande> <demande>".encode())
+                elif data.lower() == '/liste salon':
+                    db_connection = connect_to_db()
+                    if db_connection:
+                        cursor = db_connection.cursor()
+                        user_id = get_user_id(cursor, user_login)
+                        if user_id:
+                            salon_list = liste_salons(user_id)
+                            conn.send(salon_list.encode())
+                            logs(f"Récupération des salon par {user_login}")
+                        else:
+                            conn.send("ID utilisateur non trouvé.".encode())
+                        db_connection.close()
+
+
                 elif data.startswith('/admin demande'):
                     admin_demande(user_login, conn)
                 elif data.startswith('/admin ticket'):
