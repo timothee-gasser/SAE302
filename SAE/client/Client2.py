@@ -1,7 +1,8 @@
+
+import threading
 import sys
 import socket
-import threading
-from PyQt6.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QWidget, QTextEdit, QLineEdit, QPushButton, QMessageBox,QTabWidget
+from PyQt6.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QWidget, QTextEdit, QLineEdit, QPushButton, QMessageBox, QTabWidget
 
 class ConnectionDetails:
     def __init__(self, host, port, username, password, client_socket):
@@ -14,14 +15,12 @@ class ConnectionDetails:
 class AdminWindow(QMainWindow):
     def __init__(self, connection_details):
         super().__init__()
-
         self.setWindowTitle("Fenêtre Admin")
         self.connection_details = connection_details
-
-        layout = QVBoxLayout()
-
         self.received_messages = QTextEdit()
         self.received_messages.setReadOnly(True)
+
+        layout = QVBoxLayout()
         layout.addWidget(self.received_messages)
 
         self.input_field = QLineEdit()
@@ -84,7 +83,6 @@ class AdminWindow(QMainWindow):
 class ConnectionWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-
         self.setWindowTitle("Connexion au serveur")
 
         layout = QVBoxLayout()
@@ -122,8 +120,6 @@ class ConnectionWindow(QMainWindow):
         central_widget.setLayout(layout)
         self.setCentralWidget(central_widget)
 
-
-
     def connect_to_server(self):
         host = self.ip_input.text()
         port = int(self.port_input.text())
@@ -140,8 +136,7 @@ class ConnectionWindow(QMainWindow):
             if reply.strip() == "co":
                 connection_details = ConnectionDetails(host, port, username, password, client_socket)
                 self.close()
-                client_window = ClientWindow(connection_details)
-                client_window.show()
+                display_client_window(connection_details)
             elif reply.strip() == "admin":
                 connection_details = ConnectionDetails(host, port, username, password, client_socket)
                 self.close()
@@ -170,8 +165,7 @@ class ConnectionWindow(QMainWindow):
             if reply.strip() == "co":
                 connection_details = ConnectionDetails(host, port, username, password, client_socket)
                 self.close()
-                client_window = ClientWindow(connection_details)
-                client_window.show()
+                display_client_window(connection_details)
             else:
                 QMessageBox.warning(self, "Erreur d'inscription", "Inscription refusée.")
                 client_socket.close()
@@ -205,6 +199,7 @@ class ClientWindow(QMainWindow):
             QMessageBox.critical(self, "Erreur", f"Erreur lors de la connexion : {e}")
             self.close()
 
+
     def get_room_list(self):
         try:
             self.connection_details.client_socket.send("/liste salon".encode())
@@ -225,10 +220,6 @@ class ClientWindow(QMainWindow):
             central_widget.setLayout(layout)
             self.setCentralWidget(central_widget)
 
-            # Créer et afficher la deuxième fenêtre ici
-            client_window = ClientWindow(self.connection_details)
-            client_window.show()
-
         except Exception as e:
             QMessageBox.critical(self, "Erreur", f"Erreur lors de la récupération de la liste des salons : {e}")
 
@@ -243,7 +234,6 @@ class ClientWindow(QMainWindow):
                 self.received_messages.append(reply)
 
             except Exception as e:
-                self.received_messages.append(f"Une erreur s'est produite lors de la réception des messages : {e}")
                 self.quit_app()
                 break
 
@@ -264,6 +254,9 @@ class ClientWindow(QMainWindow):
     def closeEvent(self, event):
         self.quit_app()
 
+def display_client_window(connection_details):
+    client_window = ClientWindow(connection_details)
+    client_window.show()
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)

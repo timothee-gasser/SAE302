@@ -184,8 +184,8 @@ def handle_client(conn, address):
                         user_id = get_user_id(cursor, user_login)
                         if user_id:
                             salon_list = liste_salons(user_id)
-                            conn.send(salon_list.encode())
-                            logs(f"Récupération des salon par {user_login}")
+                            conn.send(f":{salon_list}".encode())
+
                         else:
                             conn.send("ID utilisateur non trouvé.".encode())
                         db_connection.close()

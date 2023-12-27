@@ -388,9 +388,9 @@ def liste_salons(user_id):
                     membres = [int(member) for member in row[2].split(',') if member]
 
                     if user_id in membres:
-                        salon_list.append(f":{nom_salon};{etat_salon};True")
+                        salon_list.append(f"{nom_salon};{etat_salon};True")
                     else:
-                        salon_list.append(f":{nom_salon};{etat_salon};False")
+                        salon_list.append(f"{nom_salon};{etat_salon};False")
 
                 db_connection.close()
                 return "|".join(salon_list)
