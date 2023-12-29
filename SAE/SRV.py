@@ -3,7 +3,7 @@ import threading
 import mysql.connector
 from connect import connection
 from administration import *
-import datetime
+
 
 sign_up_open = True
 server_running = True
@@ -11,23 +11,11 @@ client_sockets = {}
 server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 pseudo_to_address = {}
 
-def connect_to_database():
-    try:
-        db_connection = mysql.connector.connect(
-            host="185.39.142.44",
-            port="3333",
-            user="toto",
-            password="toto",
-            database="SAE302"
-        )
-        return db_connection
-    except mysql.connector.Error as err:
-        logs(f"Erreur de connexion à la base de données : {err}")
-        return None
+
 
 def insert_message_into_db(emetteur, message, name_salon=None):
     try:
-        db_connection = connect_to_database()
+        db_connection = connect_to_db()
         if db_connection:
             cursor = db_connection.cursor()
             if name_salon == None:
@@ -62,9 +50,7 @@ def handle_client(conn, address):
                 logs(f"Le client {address} s'est déconnecté")
                 remove_client(conn)
                 break
-            if data.lower() == 'bye':
-                bye = "ok bye"
-                conn.send(bye.encode())
+            if data.lower() == '/bye':
                 logs(f"Le client {address} s'est déconnecté")
                 remove_client(conn)
                 conn.close()
@@ -90,7 +76,6 @@ def handle_client(conn, address):
                             conn.send("Authentication failed. Closing connection.".encode())
                             remove_client(conn)
                             break
-
                 elif data.startswith('/sign-up'):
                     if sign_up_open:
                         command_parts = data.split()
@@ -184,13 +169,12 @@ def handle_client(conn, address):
                         user_id = get_user_id(cursor, user_login)
                         if user_id:
                             salon_list = liste_salons(user_id)
-                            conn.send(f":{salon_list}".encode())
+                            conn.send(f"{salon_list}".encode())
+                            logs(f"Le client {user_login} à récupérer les salon")
 
                         else:
                             conn.send("ID utilisateur non trouvé.".encode())
                         db_connection.close()
-
-
                 elif data.startswith('/admin demande'):
                     admin_demande(user_login, conn)
                 elif data.startswith('/admin ticket'):
@@ -260,14 +244,14 @@ def handle_client(conn, address):
                         tagged_message = salon(user_login, salon_name, salon_message)
                         if tagged_message.startswith(":"):
                             insert_message_into_db(user_login,salon_message, salon_name)
-                            send_to_salon_members(tagged_message, user_login, salon_name)
+                            send_to_salon_members(tagged_message, salon_name)
                         else:
                             conn.send(tagged_message.encode())
                     else:
                         conn.send("Le format n'est pas correct. Utilisation : /salon <nom_salon> <message>".encode())
                 else:
                     print(f"Message du client {address}: {data}")
-                    send_to_other_clients(f":general;{user_login}: {data}", conn)
+                    send_to_other_clients(f":general {user_login}: {data}")
         except Exception as e:
             logs(f"Une erreur s'est produite : {e}")
             remove_client(conn)
@@ -331,29 +315,30 @@ def admin_action(conn, admin_user, target_user, reason=None):  # Ajoutez le para
             conn.send(f"Unable to perform admin action for '{target_user}'.".encode())
     except Exception as e:
         conn.send(f"Error performing admin action: {e}".encode())
-def send_to_other_clients(message, sender_conn):
+def send_to_other_clients(message):
     for client_conn, address in client_sockets.items():
-        if client_conn != sender_conn:
-            try:
-                client_conn.send(message.encode())
-            except Exception as e:
-                logs(f"Erreur lors de l'envoi du message aux clients : {e}")
-                remove_client(client_conn)
-def send_to_salon_members(message, sender_username, salon_name):
+        try:
+            client_conn.send(message.encode())
+        except Exception as e:
+            logs(f"Erreur lors de l'envoi du message aux clients : {e}")
+            remove_client(client_conn)
+def send_to_salon_members(message, salon_name):
     try:
-        db_connection = connect_to_database()
+        db_connection = connect_to_db()
         if db_connection:
             cursor = db_connection.cursor()
 
             salon_members = get_salon_members(cursor, salon_name)
-            sender_id = get_user_id(cursor, sender_username)
+
 
             for username, address in pseudo_to_address.items():
-                member_id = get_user_id(cursor, username)  # Obtenez l'ID de l'utilisateur
-                if member_id in salon_members and member_id != sender_id:
+                member_id = get_user_id(cursor, username)
+                if member_id in salon_members:
                     try:
-                        client_conn = [conn for conn, addr in client_sockets.items() if addr == address][0]
-                        client_conn.send(message.encode())
+                        matching_conns = [conn for conn, addr in client_sockets.items() if addr == address]
+                        if matching_conns:
+                            client_conn = matching_conns[0]
+                            client_conn.send(message.encode())
 
                     except Exception as e:
                         logs(f"Erreur lors de l'envoi du message aux clients : {e}")
@@ -366,7 +351,7 @@ def send_to_salon_members(message, sender_username, salon_name):
         return "Une erreur s'est produite lors de l'envoi du message dans le salon."
 def update_user_status(username, status):
     try:
-        db_connection = connect_to_database()
+        db_connection = connect_to_db()
         if db_connection:
             cursor = db_connection.cursor()
 

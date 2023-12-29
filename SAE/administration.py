@@ -74,7 +74,7 @@ def salon(user_login, salon_name, salon_message):
             if user_id:
                 salon_members = get_salon_members(cursor, salon_name)
                 if user_id in salon_members:
-                    tagged_message = f":{salon_name};{user_login}:{salon_message}"
+                    tagged_message = f":{salon_name} {user_login}:{salon_message}"
                     db_connection.close()
                     return tagged_message
                 else:

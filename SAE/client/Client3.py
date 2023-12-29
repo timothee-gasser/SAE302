@@ -71,9 +71,9 @@ class ClientWindow(QMainWindow):
             self.received_messages.append(f"Une erreur s'est produite : {e}")
 
     def quit_app(self):
-        self.client_socket.send("bye".encode())
-        self.client_socket.close()  # Fermeture du socket
-        QApplication.quit()  # Arrêt de l'application Qt
+        self.client_socket.send("/bye".encode())
+        self.client_socket.close()
+        QApplication.quit()
 
     def closeEvent(self, event):
         self.quit_app()

@@ -74,7 +74,7 @@ class AdminWindow(QMainWindow):
             self.received_messages.append(f"Une erreur s'est produite : {e}")
 
     def quit_app(self):
-        self.connection_details.client_socket.send("bye".encode())
+        self.connection_details.client_socket.send("/bye".encode())
         self.connection_details.client_socket.close()
         QApplication.quit()
 
@@ -241,7 +241,7 @@ class ClientWindow(QMainWindow):
             self.received_messages.append(f"Une erreur s'est produite : {e}")
 
     def quit_app(self):
-        self.connection_details.client_socket.send("bye".encode())
+        self.connection_details.client_socket.send("/bye".encode())
         self.connection_details.client_socket.close()
         QApplication.quit()
 

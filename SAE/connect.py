@@ -1,35 +1,30 @@
 import mysql.connector
 from datetime import datetime
-from administration import logs, check_admin_privileges
+from administration import logs, check_admin_privileges,connect_to_db
 def is_user_or_ip_banned(login, ip_address):
     try:
-        db_connection = mysql.connector.connect(
-            host="185.39.142.44",
-            port="3333",
-            user='toto',
-            password='toto',
-            database='SAE302'
-        )
-        cursor = db_connection.cursor()
+        db_connection = connect_to_db()
+        if db_connection:
+            cursor = db_connection.cursor()
 
-        # Vérification du ban par nom d'utilisateur
-        user_ban_query = "SELECT id_util FROM Ban WHERE id_util = (SELECT id_util FROM Utilisateur WHERE login = %s)"
-        cursor.execute(user_ban_query, (login,))
-        user_ban = cursor.fetchone()
+            # Vérification du ban par nom d'utilisateur
+            user_ban_query = "SELECT id_util FROM Ban WHERE id_util = (SELECT id_util FROM Utilisateur WHERE login = %s)"
+            cursor.execute(user_ban_query, (login,))
+            user_ban = cursor.fetchone()
 
-        # Vérification du ban par adresse IP
-        ip_ban_query = "SELECT ban_ip FROM Ban WHERE ban_ip = %s"
-        cursor.execute(ip_ban_query, (ip_address,))
-        ip_ban = cursor.fetchone()
+            # Vérification du ban par adresse IP
+            ip_ban_query = "SELECT ban_ip FROM Ban WHERE ban_ip = %s"
+            cursor.execute(ip_ban_query, (ip_address,))
+            ip_ban = cursor.fetchone()
 
-        # Vérification de la table Kick
-        kick_query = "SELECT id_kick FROM Kick WHERE id_util = (SELECT id_util FROM Utilisateur WHERE login = %s) AND fin_kick > NOW()"
-        cursor.execute(kick_query, (login,))
-        kick_entry = cursor.fetchone()
+            # Vérification de la table Kick
+            kick_query = "SELECT id_kick FROM Kick WHERE id_util = (SELECT id_util FROM Utilisateur WHERE login = %s) AND fin_kick > NOW()"
+            cursor.execute(kick_query, (login,))
+            kick_entry = cursor.fetchone()
 
-        db_connection.close()
+            db_connection.close()
 
-        return user_ban or ip_ban or kick_entry
+            return user_ban or ip_ban or kick_entry
 
     except mysql.connector.Error as error:
         logs(f"Error:, {error}")
@@ -47,39 +42,33 @@ def connection(message, ip_address):
         return False
 
     try:
-        db_connection = mysql.connector.connect(
-            host="185.39.142.44",
-            port="3333",
-            user='toto',
-            password='toto',
-            database='SAE302'
-        )
-        cursor = db_connection.cursor()
-        query = "SELECT * FROM Utilisateur WHERE login = %s AND mdp = %s"
-        cursor.execute(query, (login, mdp))
-        user = cursor.fetchone()
+        db_connection = connect_to_db()
+        if db_connection:
+            cursor = db_connection.cursor()
 
-        if user:
-            update_query = "UPDATE Utilisateur SET last_ip = %s, etat_util = 'connect' WHERE login = %s"
-            cursor.execute(update_query, (ip_address, login))
+            query = "SELECT * FROM Utilisateur WHERE login = %s AND mdp = %s"
+            cursor.execute(query, (login, mdp))
+            user = cursor.fetchone()
 
+            if user:
+                update_query = "UPDATE Utilisateur SET last_ip = %s, etat_util = 'connect' WHERE login = %s"
+                cursor.execute(update_query, (ip_address, login))
+                db_connection.commit()
 
-            if check_admin_privileges(cursor, login):  # Utilisation de la fonction check_admin_privileges
-                return "admin"
-            else:
-                return "co"
+                if check_admin_privileges(cursor, login):
+                    return "admin"
+                else:
+                    return "co"
 
-            db_connection.commit()
+                db_connection.close()
             db_connection.close()
-
-        db_connection.close()
-        return False
+            return False
 
     except mysql.connector.Error as error:
         logs(f"Error: {error}")
         return False
 def main():
-    msg = "/connect ban_ip toto"
+    msg = "/connect toto toto"
     ip = "192.168.1.4"
 
     result = connection(msg, ip)
