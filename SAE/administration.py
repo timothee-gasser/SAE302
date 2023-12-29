@@ -94,6 +94,10 @@ def sign_up(username, password):
             data = (username, password, "connect")
             cursor.execute(insert_query, data)
 
+            user_id = get_user_id(cursor,username)
+            update_query = "UPDATE Salon SET id_membre = CONCAT_WS(',', IFNULL(id_membre, ''), %s) WHERE nom_salon = 'general'"
+            cursor.execute(update_query, (user_id,))
+
             db_connection.commit()
             db_connection.close()
             return True
@@ -401,7 +405,29 @@ def liste_salons(user_id):
     except mysql.connector.Error as error:
         logs(f"Erreur lors de la récupération de la liste des salons : {error}")
         return "Une erreur s'est produite lors de la récupération de la liste des salons."
+def liste_util(user_login):
+    try:
+        db_connection = connect_to_db()
+        if db_connection:
+            cursor = db_connection.cursor()
 
+            user_id = get_user_id(cursor, user_login)
+
+            query = "SELECT login, etat_util FROM Utilisateur WHERE id_util != %s"
+            cursor.execute(query, (user_id,))
+            result = cursor.fetchall()
+
+            if result:
+                user_list = [f"{row[0]},{row[1]}" for row in result]
+                db_connection.close()
+                return "; ".join(user_list)
+            else:
+                db_connection.close()
+                return "Aucun utilisateur trouvé."
+
+    except mysql.connector.Error as error:
+        logs(f"Erreur lors de la récupération de la liste des utilisateurs : {error}")
+        return "Une erreur s'est produite lors de la récupération de la liste des utilisateurs."
 def user_tickets(user_name):
     try:
         db_connection = connect_to_db()

@@ -1,5 +1,4 @@
 import mysql.connector
-from datetime import datetime
 from administration import logs, check_admin_privileges,connect_to_db
 def is_user_or_ip_banned(login, ip_address):
     try:

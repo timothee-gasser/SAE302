@@ -175,6 +175,17 @@ def handle_client(conn, address):
                         else:
                             conn.send("ID utilisateur non trouvé.".encode())
                         db_connection.close()
+                elif data.lower() == '/liste util':
+                    db_connection = connect_to_db()
+                    if db_connection:
+                        cursor = db_connection.cursor()
+                        user_id = get_user_id(cursor, user_login)
+                        if user_id:
+                            user_list = liste_util(user_login)
+                            conn.send(f":{user_list}".encode())
+                        else:
+                            conn.send("ID utilisateur non trouvé.".encode())
+                        db_connection.close()
                 elif data.startswith('/admin demande'):
                     admin_demande(user_login, conn)
                 elif data.startswith('/admin ticket'):
@@ -217,7 +228,11 @@ def handle_client(conn, address):
                                 "/admin help or /admin ? : Affiche l'aide pour les admins\n" \
                                 "/demande <Type de demande> <Demande>: permet de créer des demande qui seront directement envoyer aux admin. Le type de demande est souvent Ban,Kick,Kill\n" \
                                 "/ticket : Permet de voire l'avencer de vos ticket (demande)\n" \
-                                "/sign-up <nom> <mot de passe>: Cette commende s'execute avant la connection. Elle permet de créer un nouveau compte."
+                                "/sign-up <nom> <mot de passe>: Cette commende s'execute avant la connection. Elle permet de créer un nouveau compte.\n" \
+                                "/liste salon : Cette commande vous permet de lister tout les salon, si il est ouver(besoin uniquement d'une demande) ou fermer(besoin d'etre accepter mar les admin), et si vous en faite partie True ou False\n" \
+                                "/liste util: Cette commende vous permet de lister tout les utilisateur et savoir si ils sont connecter ou pas\n" \
+                                "/salon <nom_salon> : Vous permet d'envoyer un message dans un salon(cela fonctione selment si vous etes otorisé à parler dans ce salon \n" \
+                                "/demande salon <nom_salon> <raison>: Cette commende vous permet de demander à rejoindre un salon. Si c'est un salon ouvert vous serai directement ajouter. Si c'est un salon fermer un administrateur devra vous autorisé"
                     conn.send(help_text.encode())
                 elif data.lower() == '/admin help' or data.lower() == '/admin ?':
                     db_connection = connect_to_db()
@@ -225,11 +240,14 @@ def handle_client(conn, address):
                         cursor = db_connection.cursor()
                         if check_admin_privileges(cursor, user_login):
                             admin_help_text = "Bienvenue, je voit que tu est un admin, tu peux donc utiliser les commande suivante :\n" \
-                                              "/admin kill <username> <raison> : Pour tuer un utilisateur\n" \
-                                              "/admin ban <username or IP> <raison> : Pour bannir un utilisateur ou une IP\n" \
-                                              "/admin kick <username> <durée_en_min> <raison> : Pour expulser un utilisateur\n" \
-                                              "/admin demande : Pour voir les demandes\n" \
-                                              "/admin ticket <id_demande> <etat_demande> <commentaire> : Pour gérer les tickets\n"
+                                                "/admin kill <username> <raison> : Pour tuer un utilisateur\n" \
+                                                "/admin ban <username or IP> <raison> : Pour bannir un utilisateur ou une IP\n" \
+                                                "/admin kick <username> <durée_en_min> <raison> : Pour expulser un utilisateur\n" \
+                                                "/admin demande : Pour voir les demandes\n" \
+                                                "/admin ticket <id_demande> <etat_demande> <commentaire> : Pour gérer les tickets\n"\
+                                                "/admin demande_salon: Cette commende vous permet de lister toutes les demande pour rejoindre les salon\n" \
+                                                "/admin demande_salon_update <id_demande_salon> <etat_demande_salon(yes or no)> : En utilisant cette commende vous pouvez accepter ou refuser une demande d'un utilisateur pour rejoindre un salon\n" \
+                                                "/admin sign-up <open/close>: Cette commende permet à de nouveau utilisateur ou pas de rejoindre le serveur"
                             conn.send(admin_help_text.encode())
                         else:
                             conn.send("Vous n'avez pas les autorisations nécessaires pour cette commande.".encode())
@@ -327,10 +345,7 @@ def send_to_salon_members(message, salon_name):
         db_connection = connect_to_db()
         if db_connection:
             cursor = db_connection.cursor()
-
             salon_members = get_salon_members(cursor, salon_name)
-
-
             for username, address in pseudo_to_address.items():
                 member_id = get_user_id(cursor, username)
                 if member_id in salon_members:
