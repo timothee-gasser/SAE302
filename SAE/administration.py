@@ -418,9 +418,9 @@ def liste_util(user_login):
             result = cursor.fetchall()
 
             if result:
-                user_list = [f"{row[0]},{row[1]}" for row in result]
+                user_list = [f"{row[0]};{row[1]}" for row in result]
                 db_connection.close()
-                return "; ".join(user_list)
+                return "| ".join(user_list)
             else:
                 db_connection.close()
                 return "Aucun utilisateur trouvé."

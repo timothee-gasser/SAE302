@@ -1,8 +1,8 @@
 import sys
 import socket
 import threading
-from PyQt6.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QWidget, QTextEdit, QLineEdit, QPushButton, QMessageBox, QTabWidget
-from PyQt6.QtGui import QColor
+from PyQt6.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QWidget, QTextEdit, QLineEdit, QPushButton, QMessageBox,QHBoxLayout, QTabWidget,QLabel, QListWidget,QListWidgetItem
+from PyQt6.QtGui import QColor, QAction
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
 
 class ConnectionDetails:
@@ -208,20 +208,60 @@ class ClientWindow(QMainWindow):
         self.connection_details = connection_details
         self.message_receiver_thread = None
         self.current_room_name = None
+        self.tab_widgets = []
+        self.create_menu_bar()
 
-        layout = QVBoxLayout()
+        central_layout = QHBoxLayout()  # Utiliser un QHBoxLayout pour organiser les widgets horizontalement
+
+        # Liste des utilisateurs
+        users_layout = QVBoxLayout()
+        self.users_widget = QListWidget()
+        users_layout.addWidget(self.users_widget)
+        central_layout.addLayout(users_layout)  # Ajouter la liste des utilisateurs à la disposition centrale
+
+        # Onglets
         self.tab_widget = QTabWidget()
         self.tab_widget.currentChanged.connect(self.change_current_room)
-
-        layout.addWidget(self.tab_widget)
+        central_layout.addWidget(self.tab_widget)  # Ajouter les onglets à la disposition centrale
 
         central_widget = QWidget()
-        central_widget.setLayout(layout)
+        central_widget.setLayout(central_layout)
         self.setCentralWidget(central_widget)
 
         self.get_room_list()
         self.tab_widget.currentChanged.connect(self.reset_tab_color)
+        self.get_user_list()
 
+    def get_user_list(self):
+        try:
+            self.connection_details.client_socket.send("/liste util".encode())
+            reply = self.connection_details.client_socket.recv(1024).decode()
+
+            users = reply.split('|')
+            for user_info in users:
+                user_name, user_state = user_info.split(';')
+                item = QListWidgetItem(f"{user_name} - {user_state}")
+                self.users_widget.addItem(item)
+
+        except Exception as e:
+            QMessageBox.critical(self, "Erreur", f"Erreur lors de la récupération de la liste des utilisateurs : {e}")
+    def create_menu_bar(self):
+        menu_bar = self.menuBar()
+        demande_menu = menu_bar.addMenu('Demande')
+
+        salon_action = QAction('Salon', self)
+        salon_action.triggered.connect(self.open_join_salon_request)
+        demande_menu.addAction(salon_action)
+
+        ticket_action = QAction('Ticket', self)
+        ticket_action.triggered.connect(self.open_ticket_request)
+        demande_menu.addAction(ticket_action)
+    def open_join_salon_request(self):
+        self.join_salon_window = JoinSalonRequestWindow(self.connection_details)
+        self.join_salon_window.show()
+    def open_ticket_request(self):
+        self.join_ticket_window = JoinTicketRequestWindow(self.connection_details)
+        self.join_ticket_window.show()
     def get_room_list(self):
         try:
             self.connection_details.client_socket.send("/liste salon".encode())
@@ -255,6 +295,13 @@ class ClientWindow(QMainWindow):
             for i in range(min(self.tab_widget.count(), len(rooms))):
                 tab_data = rooms[i].split(';')
                 if tab_data[2] == "False":
+                    label = QLabel("Vous ne faites pas partie de ce salon. Envoyez une demande pour y accéder.")
+                    label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+
+                    self.tab_widget.setTabText(i, tab_data[0])
+                    self.tab_widget.widget(i).layout().addWidget(label)
+
                     self.tab_widget.tabBar().setTabTextColor(i, QColor("red"))
 
 
@@ -262,7 +309,6 @@ class ClientWindow(QMainWindow):
 
         except Exception as e:
             QMessageBox.critical(self, "Erreur", f"Erreur lors de la récupération de la liste des salons : {e}")
-
     def reset_tab_color(self, index):
         if index >= 0:
             self.tab_widget.tabBar().setTabTextColor(index, QColor("black"))
@@ -270,7 +316,6 @@ class ClientWindow(QMainWindow):
         self.message_receiver_thread = MessageReceiverThread(self.connection_details.client_socket)
         self.message_receiver_thread.message_received.connect(self.filter_and_display_messages)
         self.message_receiver_thread.start()
-
     def filter_and_display_messages(self, message):
         room_indicators = [f":{tab_name}" for tab_name in self.get_room_names()]
         for indicator in room_indicators:
@@ -283,16 +328,13 @@ class ClientWindow(QMainWindow):
                     received_messages_widget.append(msg_content)
                     if index != self.tab_widget.currentIndex():
                         self.tab_widget.tabBar().setTabTextColor(index, QColor("blue"))
-
     def get_room_names(self):
         return [self.tab_widget.tabText(i) for i in range(self.tab_widget.count())]
-
     def get_room_index(self, room_name):
         for i in range(self.tab_widget.count()):
             if self.tab_widget.tabText(i) == room_name:
                 return i
         return -1
-
     def change_current_room(self, index):
         if index >= 0:
             self.current_room_name = self.tab_widget.tabText(index)
@@ -304,11 +346,9 @@ class ClientWindow(QMainWindow):
             input_field.clear()
         except Exception as e:
             QMessageBox.critical(self, "Erreur", f"Une erreur s'est produite : {e}")
-
     def change_current_room(self, index):
         if index >= 0:
             self.current_room_name = self.tab_widget.tabText(index)
-
     def quit_app(self):
         self.connection_details.client_socket.send("/bye".encode())
         if self.message_receiver_thread:
@@ -317,9 +357,82 @@ class ClientWindow(QMainWindow):
 
         self.connection_details.client_socket.close()
         QApplication.quit()
-
     def closeEvent(self, event):
         self.quit_app()
+class JoinSalonRequestWindow(QMainWindow):
+    def __init__(self, connection_details):
+        super().__init__()
+        self.connection_details = connection_details
+        self.setWindowTitle("Demande pour rejoindre un salon")
+
+        layout = QVBoxLayout()
+
+        label = QLabel("Demande pour rejoindre un salon")
+        layout.addWidget(label)
+
+        self.salon_name_input = QLineEdit()
+        self.salon_name_input.setPlaceholderText("Nom du salon")
+        layout.addWidget(self.salon_name_input)
+
+        self.reason_input = QLineEdit()
+        self.reason_input.setPlaceholderText("Raison")
+        layout.addWidget(self.reason_input)
+
+        send_button = QPushButton("Envoyer")
+        send_button.clicked.connect(self.send_salon_request)
+        layout.addWidget(send_button)
+
+        quit_button = QPushButton("Quitter")
+        quit_button.clicked.connect(self.close)
+        layout.addWidget(quit_button)
+
+        central_widget = QWidget()
+        central_widget.setLayout(layout)
+        self.setCentralWidget(central_widget)
+
+    def send_salon_request(self):
+        salon_name = self.salon_name_input.text()
+        reason = self.reason_input.text()
+        request_message = f"/demande_salon {salon_name} {reason}"
+        self.connection_details.client_socket.send(request_message.encode())
+        self.close()
+class JoinTicketRequestWindow(QMainWindow):
+    def __init__(self, connection_details):
+        super().__init__()
+        self.connection_details = connection_details
+        self.setWindowTitle("Demande pour création de ticket")
+
+        layout = QVBoxLayout()
+
+        label = QLabel("Création de Ticket")
+        layout.addWidget(label)
+
+        self.type_ticket_input = QLineEdit()
+        self.type_ticket_input.setPlaceholderText("tupe de demande")
+        layout.addWidget(self.type_ticket_input)
+
+        self.demande_input = QLineEdit()
+        self.demande_input.setPlaceholderText("Demande")
+        layout.addWidget(self.reason_input)
+
+        send_button = QPushButton("Envoyer")
+        send_button.clicked.connect(self.send_ticket_request)
+        layout.addWidget(send_button)
+
+        quit_button = QPushButton("Quitter")
+        quit_button.clicked.connect(self.close)
+        layout.addWidget(quit_button)
+
+        central_widget = QWidget()
+        central_widget.setLayout(layout)
+        self.setCentralWidget(central_widget)
+
+    def send_ticket_request(self):
+        type_ticket = self.type_ticket_input.text()
+        demande = self.demande_input.text()
+        request_message = f"/demande {type_ticket} {demande}"
+        self.connection_details.client_socket.send(request_message.encode())
+        self.close()
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)

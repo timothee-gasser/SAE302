@@ -182,7 +182,7 @@ def handle_client(conn, address):
                         user_id = get_user_id(cursor, user_login)
                         if user_id:
                             user_list = liste_util(user_login)
-                            conn.send(f":{user_list}".encode())
+                            conn.send(user_list.encode())
                         else:
                             conn.send("ID utilisateur non trouvé.".encode())
                         db_connection.close()
