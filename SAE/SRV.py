@@ -3,7 +3,9 @@ import threading
 import mysql.connector
 from connect import connection
 from administration import *
-
+"""
+Programe principale du serveur.
+"""
 
 sign_up_open = True
 server_running = True
@@ -14,6 +16,14 @@ pseudo_to_address = {}
 
 
 def insert_message_into_db(emetteur, message, name_salon=None):
+    """
+        Insère un message dans la base de données.
+
+        Args:
+            emetteur (str): L'émetteur du message.
+            message (str): Le contenu du message.
+            name_salon (str, optionnel): Le nom du salon. Par défaut, None.
+        """
     try:
         db_connection = connect_to_db()
         if db_connection:
@@ -37,6 +47,13 @@ def insert_message_into_db(emetteur, message, name_salon=None):
     except mysql.connector.Error as err:
         logs(f"Erreur lors de l'insertion du message : {err}")
 def handle_client(conn, address):
+    """
+        Gère les actions pour chaque client connecté.C'est Ici que tout les message seront décortiquer.
+
+        Args:
+            conn (socket): La connexion du client.
+            address (tuple): L'adresse IP et le port du client.
+        """
     global server_running
     global sign_up_open
 
@@ -107,7 +124,7 @@ def handle_client(conn, address):
                     command_parts = data.split(maxsplit=3)
                     if len(command_parts) >= 3:
                         _, _, username_to_kill, reason_to_kill = command_parts
-                        admin_action(conn, user_login, username_to_kill, reason_to_kill)
+                        admin_kill(conn, user_login, username_to_kill, reason_to_kill)
                     else:
                         conn.send("Le format n'est pas bon. C'est : /admin kill <nom> <raison>".encode())
                 elif data.startswith('/admin ban'):
@@ -269,14 +286,27 @@ def handle_client(conn, address):
                         conn.send("Le format n'est pas correct. Utilisation : /salon <nom_salon> <message>".encode())
                 else:
                     print(f"Message du client {address}: {data}")
-                    send_to_other_clients(f":general {user_login}: {data}")
+                    send_to_clients(f":general {user_login}: {data}")
         except Exception as e:
             logs(f"Une erreur s'est produite : {e}")
             remove_client(conn)
             break
-def admin_kick_action(conn, admin_user, target_user, duree, reason):
+def admin_kick_action(conn, admin_user, target_user, duree, raison):
+    """
+        Exécute l'action de kick (deconection du client pendant un sertain temps).
+
+        Args:
+            conn (socket): La connexion du client administrateur.
+            admin_user (str): Le nom de l'administrateur exécutant l'action.
+            target_user (str): Le nom de l'utilisateur à kick.
+            duree (int): La durée du kick en minutes.
+            raison (str): La raison du kick.
+
+        Notes:
+            Tout les kick sont documenter dans la BDD.
+        """
     try:
-        result = kick(admin_user, target_user, duree, reason)
+        result = kick(admin_user, target_user, duree, raison)
         if result:
             conn.send(f"Utilisateur '{target_user}' est kick pendant {duree} minutes.".encode())
 
@@ -291,10 +321,22 @@ def admin_kick_action(conn, admin_user, target_user, duree, reason):
             conn.send(f"Impossible d'effectuer l'action de kick pour '{target_user}'.".encode())
     except Exception as e:
         conn.send(f"Erreur lors de l'action de kick : {e}".encode())
-def admin_ban_action(conn, admin_user, target_user_or_ip, reason):
+def admin_ban_action(conn, admin_user, target_user_or_ip, raison):
+    """
+        Exécute une action de bannissement sur un utilisateur ou une adresse IP.
+
+        Args:
+            conn (socket): La connexion du client administrateur.
+            admin_user (str): Le nom de l'administrateur exécutant l'action.
+            target_user_or_ip (str): Le nom de l'utilisateur ou l'adresse IP à bannir.
+            raison (str): La raison du bannissement.
+
+        Notes:
+            Tout les banissement sont documenter dans la BDD.
+        """
     global client_sockets, pseudo_to_address
     try:
-        result = ban(admin_user, target_user_or_ip, reason)
+        result = ban(admin_user, target_user_or_ip, raison)
         if result:
             conn.send(f"Utilisateur ou IP '{target_user_or_ip}' est banni.".encode())
 
@@ -315,9 +357,21 @@ def admin_ban_action(conn, admin_user, target_user_or_ip, reason):
             conn.send(f"Impossible d'effectuer l'action de bannissement pour '{target_user_or_ip}'.".encode())
     except Exception as e:
         conn.send(f"Erreur lors de l'action de bannissement : {e}".encode())
-def admin_action(conn, admin_user, target_user, reason=None):  # Ajoutez le paramètre reason
+def admin_kill(conn, admin_user, target_user, raison=None):
+    """
+        Exécute l'action kill qui permet de deconecter un clien .
+
+        Args:
+            conn (socket): La connexion du client administrateur.
+            admin_user (str): Le nom de l'administrateur exécutant l'action.
+            target_user (str): Le nom de l'utilisateur à kill.
+            raison (str, optionnel): La raison du kill. Par défaut, None.
+
+        Notes:
+            Tout les kill sont documenter dans la BDD.
+    """
     try:
-        result = kill(admin_user, target_user, reason)  # Passez la raison à la fonction kill
+        result = kill(admin_user, target_user, raison)
         if result:
             conn.send(f"Tu à kill '{target_user}'.Il c'est fait déco.".encode())
             for username, addr in pseudo_to_address.items():
@@ -333,14 +387,38 @@ def admin_action(conn, admin_user, target_user, reason=None):  # Ajoutez le para
             conn.send(f"Unable to perform admin action for '{target_user}'.".encode())
     except Exception as e:
         conn.send(f"Error performing admin action: {e}".encode())
-def send_to_other_clients(message):
+def send_to_clients(message):
+    """
+        Envoie un message à tous les autres clients connectés.
+
+        Args:
+            message (str): Le message à envoyer.
+
+        Notes:
+            Cette fonction envoie le message spécifié à tous les clients connectés.
+            En cas d'erreur lors de l'envoi du message à un client spécifique, ce client
+            est retiré de la liste des clients connectés.Cela evite certaines erreurs.
+        """
     for client_conn, address in client_sockets.items():
         try:
             client_conn.send(message.encode())
         except Exception as e:
             logs(f"Erreur lors de l'envoi du message aux clients : {e}")
             remove_client(client_conn)
+
 def send_to_salon_members(message, salon_name):
+    """
+        Envoie un message à tous les membres d'un salon spécifique.
+
+        Args:
+            message (str): Le message à envoyer.
+            salon_name (str): Le nom du salon auquel le message doit être envoyé.
+
+        Notes:
+            Elle récupère d'abord les membres du salon depuis la base de données et envoie ensuite le message
+            à chaque membre connecté du salon.
+
+    """
     try:
         db_connection = connect_to_db()
         if db_connection:
@@ -365,6 +443,18 @@ def send_to_salon_members(message, salon_name):
         logs(f"Error: {error}")
         return "Une erreur s'est produite lors de l'envoi du message dans le salon."
 def update_user_status(username, status):
+    """
+        Met à jour le statut d'un utilisateur dans la base de données.
+
+        Args:
+            username (str): Le nom d'utilisateur à mettre à jour.
+            status (str): Le nouveau statut de l'utilisateur (connect ou deco).
+
+        Notes:
+            Cette fonction met à jour l'état (ou statut) d'un utilisateur dans la base de données.
+            Elle exécute directement une requête SQL pour modifier l'état de l'utilisateur spécifié.
+
+    """
     try:
         db_connection = connect_to_db()
         if db_connection:
@@ -379,6 +469,19 @@ def update_user_status(username, status):
     except mysql.connector.Error as err:
         logs(f"Erreur lors de la mise à jour de l'état de l'utilisateur : {err}")
 def remove_client(client_conn):
+    """
+        Supprime un client de la liste des clients connectés et met à jour son statut.
+
+        Args:
+            client_conn (socket): La connexion du client à supprimer.
+
+        Notes:
+            Cette fonction retire un client spécifique de la liste des clients connectés. Elle identifie l'utilisateur
+            associé à la connexion du client à l'aide des informations stockées dans les dictionnaires `client_sockets`
+            et `pseudo_to_address`. Ensuite, elle met à jour le statut de déconnexion de l'utilisateur, s'il est connecté,
+            en appelant la fonction `update_user_status`. Enfin, elle ferme la connexion du client.
+
+        """
     if client_conn in client_sockets:
         address = client_sockets[client_conn]
         username = [user for user, addr in pseudo_to_address.items() if addr == address]
@@ -388,8 +491,16 @@ def remove_client(client_conn):
         del client_sockets[client_conn]
         client_conn.close()
 def start_server():
+    """
+        Lance le serveur.
+
+        Notes:
+            Cette fonction initialise et lance le serveur sur l'addresse 0.0.0.0 et un port donner par l'utilisateur. Elle écoute
+            les connexions entrantes et crée des threads pour gérer les clients connectés en appelant la fonction
+            'handle_client'.
+    """
     host = '0.0.0.0'
-    port = 12345
+    port = int(input("Port d'écoute du serveur: "))
 
     try:
         server_socket.bind((host, port))

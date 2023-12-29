@@ -5,6 +5,7 @@ from PyQt6.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QWidget, QTe
 from PyQt6.QtGui import QColor, QAction
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
 
+
 class ConnectionDetails:
     def __init__(self, host, port, username, password, client_socket):
         self.host = host
@@ -41,6 +42,7 @@ class AdminWindow(QMainWindow):
 
         try:
             self.received_messages.append(f"Connecté au serveur sur {self.connection_details.host}:{self.connection_details.port}")
+            self.received_messages.append("Si vous avez besoin d'aide vous pouvez utiliser /? , /help , /admin ?, /admin help")
 
             self.receive_thread = threading.Thread(target=self.receive_messages)
             self.receive_thread.start()
@@ -48,7 +50,6 @@ class AdminWindow(QMainWindow):
         except Exception as e:
             QMessageBox.critical(self, "Erreur", f"Erreur lors de la connexion : {e}")
             self.close()
-
     def receive_messages(self):
         while True:
             try:
@@ -63,7 +64,6 @@ class AdminWindow(QMainWindow):
                 self.received_messages.append(f"Une erreur s'est produite lors de la réception des messages : {e}")
                 self.quit_app()
                 break
-
     def send_message(self):
         message = self.input_field.text()
         try:
@@ -72,12 +72,10 @@ class AdminWindow(QMainWindow):
 
         except Exception as e:
             self.received_messages.append(f"Une erreur s'est produite : {e}")
-
     def quit_app(self):
         self.connection_details.client_socket.send("/bye".encode())
         self.connection_details.client_socket.close()
         QApplication.quit()
-
     def closeEvent(self, event):
         self.quit_app()
 
@@ -211,18 +209,18 @@ class ClientWindow(QMainWindow):
         self.tab_widgets = []
         self.create_menu_bar()
 
-        central_layout = QHBoxLayout()  # Utiliser un QHBoxLayout pour organiser les widgets horizontalement
+        central_layout = QHBoxLayout()
 
-        # Liste des utilisateurs
+
         users_layout = QVBoxLayout()
         self.users_widget = QListWidget()
         users_layout.addWidget(self.users_widget)
-        central_layout.addLayout(users_layout)  # Ajouter la liste des utilisateurs à la disposition centrale
+        central_layout.addLayout(users_layout)
 
-        # Onglets
+
         self.tab_widget = QTabWidget()
         self.tab_widget.currentChanged.connect(self.change_current_room)
-        central_layout.addWidget(self.tab_widget)  # Ajouter les onglets à la disposition centrale
+        central_layout.addWidget(self.tab_widget)
 
         central_widget = QWidget()
         central_widget.setLayout(central_layout)
@@ -247,8 +245,8 @@ class ClientWindow(QMainWindow):
             QMessageBox.critical(self, "Erreur", f"Erreur lors de la récupération de la liste des utilisateurs : {e}")
     def create_menu_bar(self):
         menu_bar = self.menuBar()
-        demande_menu = menu_bar.addMenu('Demande')
 
+        demande_menu = menu_bar.addMenu('Demande')
         salon_action = QAction('Salon', self)
         salon_action.triggered.connect(self.open_join_salon_request)
         demande_menu.addAction(salon_action)
@@ -256,6 +254,19 @@ class ClientWindow(QMainWindow):
         ticket_action = QAction('Ticket', self)
         ticket_action.triggered.connect(self.open_ticket_request)
         demande_menu.addAction(ticket_action)
+
+        afficher_menu = menu_bar.addMenu('Afficher')
+
+
+        commande_action = QAction('Ligne de Commande', self)
+        commande_action.triggered.connect(self.open_cli)
+        afficher_menu.addAction(commande_action)
+
+    def open_cli(self):
+        CLI = Cli(self.connection_details)
+        CLI.show()
+
+
     def open_join_salon_request(self):
         self.join_salon_window = JoinSalonRequestWindow(self.connection_details)
         self.join_salon_window.show()
@@ -408,12 +419,12 @@ class JoinTicketRequestWindow(QMainWindow):
         layout.addWidget(label)
 
         self.type_ticket_input = QLineEdit()
-        self.type_ticket_input.setPlaceholderText("tupe de demande")
+        self.type_ticket_input.setPlaceholderText("Type de demande")
         layout.addWidget(self.type_ticket_input)
 
         self.demande_input = QLineEdit()
         self.demande_input.setPlaceholderText("Demande")
-        layout.addWidget(self.reason_input)
+        layout.addWidget(self.demande_input)  # Modification ici : Utiliser self.demande_input au lieu de self.reason_input
 
         send_button = QPushButton("Envoyer")
         send_button.clicked.connect(self.send_ticket_request)
@@ -433,6 +444,74 @@ class JoinTicketRequestWindow(QMainWindow):
         request_message = f"/demande {type_ticket} {demande}"
         self.connection_details.client_socket.send(request_message.encode())
         self.close()
+class Cli(QMainWindow):
+    def __init__(self, connection_details):
+        super().__init__()
+        self.setWindowTitle("CLI")
+        self.connection_details = connection_details
+        self.received_messages = QTextEdit()
+        self.received_messages.setReadOnly(True)
+
+        layout = QVBoxLayout()
+        layout.addWidget(self.received_messages)
+
+        self.input_field = QLineEdit()
+        layout.addWidget(self.input_field)
+
+        send_button = QPushButton("Envoyer")
+        send_button.clicked.connect(self.send_message)
+        layout.addWidget(send_button)
+
+        quit_button = QPushButton("Quitter")
+        quit_button.clicked.connect(self.quit_app)
+        layout.addWidget(quit_button)
+
+        central_widget = QWidget()
+        central_widget.setLayout(layout)
+        self.setCentralWidget(central_widget)
+
+        try:
+            self.received_messages.append(f"Connecté au serveur sur {self.connection_details.host}:{self.connection_details.port}")
+            self.received_messages.append("Si vous avez besoin d'aide vous pouvez utiliser /? ou /help")
+            self.receive_thread = threading.Thread(target=self.receive_messages)
+            self.receive_thread.start()
+
+        except Exception as e:
+            QMessageBox.critical(self, "Erreur", f"Erreur lors de la connexion : {e}")
+            self.close()
+
+    def receive_messages(self):
+        while True:
+            try:
+                reply = self.connection_details.client_socket.recv(1024).decode()
+                if not reply:
+                    self.received_messages.append("Le serveur s'est déconnecté")
+                    self.quit_app()
+                    break
+                self.received_messages.append(reply)
+
+            except Exception as e:
+                self.received_messages.append(f"Une erreur s'est produite lors de la réception des messages : {e}")
+                self.quit_app()
+                break
+
+    def send_message(self):
+        message = self.input_field.text()
+        try:
+            self.connection_details.client_socket.send(message.encode())
+            self.input_field.clear()
+
+        except Exception as e:
+            self.received_messages.append(f"Une erreur s'est produite : {e}")
+
+    def quit_app(self):
+        self.connection_details.client_socket.send("/bye".encode())
+        self.connection_details.client_socket.close()
+        QApplication.quit()
+
+    def closeEvent(self, event):
+        self.quit_app()
+
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
