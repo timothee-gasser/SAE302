@@ -122,7 +122,15 @@ def handle_client(conn, address):
                     command_parts = data.split(maxsplit=3)
                     if len(command_parts) >= 3:
                         _, _, username_to_kill, reason_to_kill = command_parts
-                        admin_kill(conn, user_login, username_to_kill, reason_to_kill)
+                        if username_to_kill == "serveur":
+                            send_to_clients("Le serveur va s'arrêter. Vous allez être déconnecté.")
+                            for client_conn in list(client_sockets.keys()):
+                                remove_client(client_conn)
+                            server_running = False
+                            server_socket.close()
+                            break
+                        else:
+                            admin_kill(conn, user_login, username_to_kill, reason_to_kill)
                     else:
                         conn.send("Le format n'est pas bon. C'est : /admin kill <nom> <raison>".encode())
                 elif data.startswith('/admin ban'):
@@ -255,7 +263,7 @@ def handle_client(conn, address):
                         cursor = db_connection.cursor()
                         if check_admin_privileges(cursor, user_login):
                             admin_help_text = "Bienvenue, je voit que tu est un admin, tu peux donc utiliser les commande suivante :\n" \
-                                                "/admin kill <username> <raison> : Pour tuer un utilisateur\n" \
+                                                "/admin kill <username-serveur> <raison> : Pour tuer un utilisateur ou etaindre le serveur\n" \
                                                 "/admin ban <username or IP> <raison> : Pour bannir un utilisateur ou une IP\n" \
                                                 "/admin kick <username> <durée_en_min> <raison> : Pour expulser un utilisateur\n" \
                                                 "/admin demande : Pour voir les demandes\n" \
