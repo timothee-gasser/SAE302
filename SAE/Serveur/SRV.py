@@ -130,6 +130,7 @@ def handle_client(conn, address):
                             server_socket.close()
                             break
                         else:
+                            
                             admin_kill(conn, user_login, username_to_kill, reason_to_kill)
                     else:
                         conn.send("Le format n'est pas bon. C'est : /admin kill <nom> <raison>".encode())
