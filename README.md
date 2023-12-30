@@ -1,6 +1,6 @@
-# Ressource R309 et SAE302
+# SAE302
 
-Ce dépôt GitHub contient les fichiers pour la ressource R309 et la SAE302.
+Ce dépôt GitHub contient les fichiers pour la SAE302.
 
 
 ## Les fichiers sont organisés de la manière suivante :
@@ -17,30 +17,7 @@ Ce dépôt GitHub contient les fichiers pour la ressource R309 et la SAE302.
     - `Client_CLI.py` (Programme client sans interface)  
 
           
--**Cours**
-  - **exam**
-    - `mathfunct.py`
-    - `mathlogsock_client.py`
-    - `mathlogsock_serveur.py`
-    
-  - **Exceptions**
-    - `ex1.py`
-    - `ex2.py`
-    
-  - **int_graph**
-    - `graph.py`
-    - `icon.png`
-    - `°.py`
-    
-  - **threads_sockets**
-    - **asynchrone**
-      - `Client1.py`
-      - `Client2.py`
-      - `Serveur.py`
-    
-    - **synchrone**
-      - `$RN57OZS.py`
-      - `ex_client.py`
+
    
 ## Etat d'avencement du projet :
 
