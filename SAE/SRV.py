@@ -13,8 +13,6 @@ client_sockets = {}
 server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 pseudo_to_address = {}
 
-
-
 def insert_message_into_db(emetteur, message, name_salon=None):
     """
         Insère un message dans la base de données.
@@ -405,7 +403,6 @@ def send_to_clients(message):
         except Exception as e:
             logs(f"Erreur lors de l'envoi du message aux clients : {e}")
             remove_client(client_conn)
-
 def send_to_salon_members(message, salon_name):
     """
         Envoie un message à tous les membres d'un salon spécifique.

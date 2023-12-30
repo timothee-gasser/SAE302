@@ -4,18 +4,43 @@ import threading
 from PyQt6.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QWidget, QTextEdit, QLineEdit, QPushButton, QMessageBox,QHBoxLayout, QTabWidget,QLabel, QListWidget,QListWidgetItem
 from PyQt6.QtGui import QColor, QAction
 from PyQt6.QtCore import Qt, QThread, pyqtSignal
-
-
+"""
+    Client avec interface graphique non terminé
+"""
 class ConnectionDetails:
     def __init__(self, host, port, username, password, client_socket):
+        """
+            Stocke les détails de la connexion.
+
+            Args:
+                host (str): L'adresse IP ou le nom d'hôte du serveur.
+                port (int): Le numéro de port pour la connexion.
+                username (str): Le nom d'utilisateur utilisé pour la connexion.
+                password (str): Le mot de passe associé à l'utilisateur.
+                client_socket (socket.socket): Le socket client pour la connexion.
+        """
         self.host = host
         self.port = port
         self.username = username
         self.password = password
         self.client_socket = client_socket
-
 class AdminWindow(QMainWindow):
     def __init__(self, connection_details):
+        """
+            Fenêtre administrateur de l'interface en ligne de commande.
+
+            Args:
+                connection_details (ConnectionDetails): Détails de connexion pour l'utilisateur.
+
+            Attributes:
+                received_messages (QTextEdit): Champ texte pour afficher les messages reçus.
+                input_field (QLineEdit): Champ pour entrer les messages à envoyer.
+                connection_details (ConnectionDetails): Détails de connexion pour l'utilisateur.
+
+            Notes:
+                Cette classe représente la fenêtre administrateur de l'interface en ligne de commande.
+                Elle permet à l'administrateur de se connecter au serveur et d'envoyer/recevoir des messages.
+        """
         super().__init__()
         self.setWindowTitle("Fenêtre Admin")
         self.connection_details = connection_details
@@ -51,6 +76,14 @@ class AdminWindow(QMainWindow):
             QMessageBox.critical(self, "Erreur", f"Erreur lors de la connexion : {e}")
             self.close()
     def receive_messages(self):
+        """
+            Reçoit les messages du serveur et les affiche dans la fenêtre.
+
+            Notes:
+                Cette méthode est chargée de recevoir les messages du serveur via la connexion du client.
+                Elle affiche les messages reçus dans la fenêtre de l'interface utilisateur.
+                En cas d'erreur lors de la réception des messages, elle arrête l'écoute et affiche le problème.
+        """
         while True:
             try:
                 reply = self.connection_details.client_socket.recv(1024).decode()
@@ -65,6 +98,14 @@ class AdminWindow(QMainWindow):
                 self.quit_app()
                 break
     def send_message(self):
+        """
+            Envoie un message saisi par l'utilisateur.
+
+            Notes:
+                Cette méthode envoie le message entré par l'utilisateur à travers le socket.
+                Elle efface ensuite le champ de saisie.
+                En cas d'erreur lors de l'envoi du message, elle affiche un message d'erreur dans la fenêtre.
+        """
         message = self.input_field.text()
         try:
             self.connection_details.client_socket.send(message.encode())
@@ -73,14 +114,26 @@ class AdminWindow(QMainWindow):
         except Exception as e:
             self.received_messages.append(f"Une erreur s'est produite : {e}")
     def quit_app(self):
+        """
+                Termine l'application de l'interface administrateur.
+
+                Notes:
+                    Cette méthode arrête le thread de réception des messages, envoie un signal de déconnexion au serveur,
+                    ferme le socket client et quitte l'application QApplication.
+        """
         self.connection_details.client_socket.send("/bye".encode())
         self.connection_details.client_socket.close()
         QApplication.quit()
     def closeEvent(self, event):
         self.quit_app()
-
 class ConnectionWindow(QMainWindow):
     def __init__(self):
+        """
+                Initialise une fenêtre de connexion au serveur.
+
+                La fenêtre contient des champs pour saisir l'IP du serveur, le port, le nom d'utilisateur et le mot de passe.
+                Elle permet de se connecter au serveur ou de s'inscrire en tant qu'utilisateur.
+        """
         super().__init__()
         self.setWindowTitle("Connexion au serveur")
 
@@ -118,12 +171,18 @@ class ConnectionWindow(QMainWindow):
         central_widget = QWidget()
         central_widget.setLayout(layout)
         self.setCentralWidget(central_widget)
-
-    def display_client_window(self, connection_details):
-        self.client_window = ClientWindow(connection_details)
-        self.client_window.show()
-
     def connect_to_server(self):
+        """
+                Tente de se connecter au serveur en utilisant les informations saisies.
+
+                Récupère l'IP, le port, le nom d'utilisateur et le mot de passe saisis par l'utilisateur.
+                Établit une connexion avec le serveur via un socket.
+                Envoie les informations d'identification au serveur et attend la réponse.
+                Si la connexion est établie en tant qu'utilisateur standard ('co'), ouvre la fenêtre de client CLI.
+                Si la connexion est établie en tant qu'administrateur ('admin'), ouvre la fenêtre d'administration CLI.
+                Sinon, affiche un avertissement de connexion refusée.
+                En cas d'erreur, affiche une boîte de dialogue avec le détail de l'erreur.
+        """
         host = self.ip_input.text()
         port = int(self.port_input.text())
         username = self.username_input.text()
@@ -139,7 +198,8 @@ class ConnectionWindow(QMainWindow):
             if reply.strip() == "co":
                 connection_details = ConnectionDetails(host, port, username, password, client_socket)
                 self.close()
-                self.display_client_window(connection_details)
+                client_window = ClientWindow(connection_details)
+                client_window.show()
             elif reply.strip() == "admin":
                 connection_details = ConnectionDetails(host, port, username, password, client_socket)
                 self.close()
@@ -151,8 +211,17 @@ class ConnectionWindow(QMainWindow):
 
         except Exception as e:
             QMessageBox.critical(self, "Erreur", f"Erreur lors de la connexion : {e}")
-
     def sign_up(self):
+        """
+                Tente de s'inscrire en utilisant les informations saisies.
+
+                Récupère l'IP, le port, le nom d'utilisateur et le mot de passe saisis par l'utilisateur.
+                Établit une connexion avec le serveur via un socket.
+                Envoie les informations d'inscription au serveur et attend la réponse.
+                Si l'inscription est réussie ('co'), ouvre la fenêtre de client.
+                Sinon, affiche un avertissement d'inscription refusée.
+                En cas d'erreur, affiche une boîte de dialogue avec le détail de l'erreur.
+        """
         host = self.ip_input.text()
         port = int(self.port_input.text())
         username = self.username_input.text()
@@ -168,7 +237,8 @@ class ConnectionWindow(QMainWindow):
             if reply.strip() == "co":
                 connection_details = ConnectionDetails(host, port, username, password, client_socket)
                 self.close()
-                self.display_client_window(connection_details)
+                client_window = ClientWindow(connection_details)
+                client_window.show()
             else:
                 QMessageBox.warning(self, "Erreur d'inscription", "Inscription refusée.")
                 client_socket.close()
@@ -176,14 +246,33 @@ class ConnectionWindow(QMainWindow):
         except Exception as e:
             QMessageBox.critical(self, "Erreur", f"Erreur lors de l'inscription : {e}")
 class MessageReceiverThread(QThread):
+    """
+    Thread dédié à la réception des messages du serveur.
+
+    Attributes:
+        message_received (pyqtSignal): Signal émis lorsqu'un message est reçu.
+
+    Methods:
+        __init__: Initialise le thread de réception des messages.
+        run: Lance l'exécution du thread pour recevoir les messages.
+        stop: Arrête l'exécution du thread.
+    """
     message_received = pyqtSignal(str)
 
     def __init__(self, client_socket):
+        """
+        Initialise le thread de réception des messages.
+
+        Args:
+            client_socket: Socket client pour la communication avec le serveur.
+        """
         super().__init__()
         self.client_socket = client_socket
         self.running = True
-
     def run(self):
+        """
+        Lance l'exécution du thread pour recevoir les messages.
+        """
         while self.running:
             try:
                 reply = self.client_socket.recv(1024).decode()
@@ -194,11 +283,41 @@ class MessageReceiverThread(QThread):
             except Exception as e:
                 self.message_received.emit(f"Erreur : {e}")
                 break
-
     def stop(self):
+        """
+        Arrête l'exécution du thread.
+        """
         self.running = False
-
 class ClientWindow(QMainWindow):
+    """
+        Interface graphique du client pour interagir avec le serveur.
+
+        Attributes:
+            connection_details (ConnectionDetails): Détails de la connexion du client.
+            running (bool): Indique l'état de l'application.
+            message_receiver_thread (MessageReceiverThread): Thread pour la réception des messages.
+            current_room_name (str): Nom de la salle actuellement sélectionnée.
+            tab_widgets (list): Liste des onglets de la fenêtre.
+            users_widget (QListWidget): Widget pour afficher la liste des utilisateurs.
+
+        Methods:
+            __init__: Initialise la fenêtre client et configure l'interface.
+            get_user_list: Récupère et affiche la liste des utilisateurs.
+            create_menu_bar: Crée la barre de menu avec des options de demande.
+            open_cli: Ouvre l'interface en ligne de commande (CLI).
+            open_join_salon_request: Ouvre la fenêtre pour rejoindre un salon.
+            open_ticket_request: Ouvre la fenêtre pour créer un ticket.
+            get_room_list: Récupère et affiche la liste des salons disponibles.
+            reset_tab_color: Réinitialise la couleur de l'onglet sélectionné.
+            start_message_receiver: Démarre le thread de réception des messages.
+            filter_and_display_messages: Filtrer et afficher les messages dans les onglets des salons.
+            get_room_names: Récupère les noms des salons.
+            get_room_index: Récupère l'indice d'un salon spécifique.
+            change_current_room: Change la salle actuellement sélectionnée.
+            send_message: Envoie un message à une salle spécifique.
+            quit_app: Gère la fermeture de l'application.
+            closeEvent: Gère l'événement de fermeture de la fenêtre.
+        """
     def __init__(self, connection_details):
         super().__init__()
         self.running = True
@@ -229,7 +348,6 @@ class ClientWindow(QMainWindow):
         self.get_room_list()
         self.tab_widget.currentChanged.connect(self.reset_tab_color)
         self.get_user_list()
-
     def get_user_list(self):
         try:
             self.connection_details.client_socket.send("/liste util".encode())
@@ -261,12 +379,9 @@ class ClientWindow(QMainWindow):
         commande_action = QAction('Ligne de Commande', self)
         commande_action.triggered.connect(self.open_cli)
         afficher_menu.addAction(commande_action)
-
     def open_cli(self):
         CLI = Cli(self.connection_details)
         CLI.show()
-
-
     def open_join_salon_request(self):
         self.join_salon_window = JoinSalonRequestWindow(self.connection_details)
         self.join_salon_window.show()
@@ -371,6 +486,17 @@ class ClientWindow(QMainWindow):
     def closeEvent(self, event):
         self.quit_app()
 class JoinSalonRequestWindow(QMainWindow):
+    """
+    Interface graphique pour envoyer une demande pour rejoindre un salon.
+
+    Attributes:
+        connection_details (ConnectionDetails): Détails de la connexion du client.
+
+    Methods:
+        __init__: Initialise la fenêtre de demande de salon et configure l'interface.
+        send_salon_request: Envoie une demande pour rejoindre un salon avec le nom et la raison.
+
+    """
     def __init__(self, connection_details):
         super().__init__()
         self.connection_details = connection_details
@@ -400,7 +526,6 @@ class JoinSalonRequestWindow(QMainWindow):
         central_widget = QWidget()
         central_widget.setLayout(layout)
         self.setCentralWidget(central_widget)
-
     def send_salon_request(self):
         salon_name = self.salon_name_input.text()
         reason = self.reason_input.text()
@@ -408,6 +533,17 @@ class JoinSalonRequestWindow(QMainWindow):
         self.connection_details.client_socket.send(request_message.encode())
         self.close()
 class JoinTicketRequestWindow(QMainWindow):
+    """
+    Interface graphique pour envoyer une demande de création de ticket.
+
+    Attributes:
+        connection_details (ConnectionDetails): Détails de la connexion du client.
+
+    Methods:
+        __init__: Initialise la fenêtre de demande de ticket et configure l'interface.
+        send_ticket_request: Envoie une demande de création de ticket avec le type et la demande.
+
+    """
     def __init__(self, connection_details):
         super().__init__()
         self.connection_details = connection_details
@@ -424,7 +560,7 @@ class JoinTicketRequestWindow(QMainWindow):
 
         self.demande_input = QLineEdit()
         self.demande_input.setPlaceholderText("Demande")
-        layout.addWidget(self.demande_input)  # Modification ici : Utiliser self.demande_input au lieu de self.reason_input
+        layout.addWidget(self.demande_input)
 
         send_button = QPushButton("Envoyer")
         send_button.clicked.connect(self.send_ticket_request)
@@ -445,6 +581,20 @@ class JoinTicketRequestWindow(QMainWindow):
         self.connection_details.client_socket.send(request_message.encode())
         self.close()
 class Cli(QMainWindow):
+    """
+    Interface de ligne de commande (CLI) pour interagir avec le serveur.
+
+    Attributes:
+        connection_details (ConnectionDetails): Détails de la connexion du client.
+
+    Methods:
+        __init__: Initialise la fenêtre de la ligne de commande et configure l'interface.
+        receive_messages: Reçoit les messages du serveur et les affiche dans la fenêtre de la CLI.
+        send_message: Envoie un message au serveur à partir du champ de saisie.
+        quit_app: Envoie un signal de déconnexion au serveur et ferme l'application.
+        closeEvent: Gère l'événement de fermeture de la fenêtre.
+
+    """
     def __init__(self, connection_details):
         super().__init__()
         self.setWindowTitle("CLI")
@@ -511,8 +661,6 @@ class Cli(QMainWindow):
 
     def closeEvent(self, event):
         self.quit_app()
-
-
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     connection_window = ConnectionWindow()
