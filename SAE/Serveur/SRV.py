@@ -1,13 +1,12 @@
 import socket
 import threading
-import mysql.connector
 from connect import connection
 from administration import *
 """
 Programe principale du serveur.
 """
 
-sign_up_open = True
+sign_up_open = False
 server_running = True
 client_sockets = {}
 server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -100,7 +99,6 @@ def handle_client(conn, address):
                             signup_result = sign_up(username, password)
                             if signup_result:
                                 conn.send("co".encode())
-                                conn.send("Inscription réussie. Nouveau compte créé.".encode())
                                 logs(f"Utilisateur {username} connecté depuis {ip}")
                                 authenticated = True
                                 user_login = username
@@ -117,7 +115,6 @@ def handle_client(conn, address):
                     remove_client(conn)
                     break
             elif authenticated:
-                insert_message_into_db(user_login, data)
                 if data.startswith('/admin kill'):
                     command_parts = data.split(maxsplit=3)
                     if len(command_parts) >= 3:
@@ -150,6 +147,7 @@ def handle_client(conn, address):
                         conn.send(
                             "Le format n'est pas bon. C'est : /admin kick <nom_utilisateur> <durée_en_min> <raison>".encode())
                 elif data.startswith('/demande_salon'):
+                    insert_message_into_db(user_login, data)
                     command_parts = data.split(maxsplit=2)
                     if len(command_parts) >= 2:
                         _, salon_name, raison = command_parts
@@ -165,6 +163,7 @@ def handle_client(conn, address):
                     else:
                         conn.send("Format incorrect. Utilisation : /demande_salon <nom_salon> <raison>".encode())
                 elif data.startswith('/admin demande_salon_update'):
+                    insert_message_into_db(user_login, data)
                     command_parts = data.split(maxsplit=3)
                     if len(command_parts) >= 3:
                         _, _, id_demande_salon, etat_demande_salon = command_parts
@@ -177,6 +176,7 @@ def handle_client(conn, address):
                         conn.send(
                             "Le format n'est pas bon. C'est : /admin demande_salon_update <id_demande_salon> <etat_demande_salon(yes or no)>".encode())
                 elif data.startswith('/admin demande_salon'):
+                    insert_message_into_db(user_login, data)
                     admin_demande_salon(user_login, conn)
                 elif data.startswith('/demande'):
                     command_parts = data.split(maxsplit=2)
@@ -211,8 +211,10 @@ def handle_client(conn, address):
                             conn.send("ID utilisateur non trouvé.".encode())
                         db_connection.close()
                 elif data.startswith('/admin demande'):
+                    insert_message_into_db(user_login, data)
                     admin_demande(user_login, conn)
                 elif data.startswith('/admin ticket'):
+                    insert_message_into_db(user_login, data)
                     command_parts = data.split(maxsplit=4)
                     if len(command_parts) >= 4:
                         _, _, id_demande, etat_demande, commentaire = command_parts
@@ -225,6 +227,7 @@ def handle_client(conn, address):
                         conn.send(
                             "Le format n'est pas bon. C'est : /admin ticket <id_demande> <etat_demande> <commentaire>".encode())
                 elif data.startswith('/admin sign-up'):
+                    insert_message_into_db(user_login, data)
                     command_parts = data.split(maxsplit=2)
                     db_connection = connect_to_db()
                     if db_connection:
@@ -248,14 +251,14 @@ def handle_client(conn, address):
                         db_connection.close()
                 elif data.lower() == '/help' or data.lower() == '/?':
                     help_text = "Bienvenue sur le serveur de chat. Voici quelques commandes disponibles :\n" \
-                                "/help or /? : Affiche cette aide\n" \
-                                "/admin help or /admin ? : Affiche l'aide pour les admins\n" \
+                                "/help ou /? : Affiche cette aide\n" \
+                                "/admin help ou /admin ? : Affiche l'aide pour les admins\n" \
                                 "/demande <Type de demande> <Demande>: permet de créer des demande qui seront directement envoyer aux admin. Le type de demande est souvent Ban,Kick,Kill\n" \
-                                "/ticket : Permet de voire l'avencer de vos ticket (demande)\n" \
-                                "/sign-up <nom> <mot de passe>: Cette commende s'execute avant la connection. Elle permet de créer un nouveau compte.\n" \
-                                "/liste salon : Cette commande vous permet de lister tout les salon, si il est ouver(besoin uniquement d'une demande) ou fermer(besoin d'etre accepter mar les admin), et si vous en faite partie True ou False\n" \
+                                "/ticket : Permet de voir l'avancer de vos ticket (demande)\n" \
+                                "/sign-up <nom> <mot de passe>: Cette commande s'exécute avant la connexion. Elle permet de créer un nouveau compte.\n" \
+                                "/liste salon : Cette commande vous permet de lister tous les salon, si il est ouvert(besoin uniquement d'une demande) ou fermer(besoin d'être accepté par les admins), et si vous en fait partie True ou False.\n" \
                                 "/liste util: Cette commende vous permet de lister tout les utilisateur et savoir si ils sont connecter ou pas\n" \
-                                "/salon <nom_salon> : Vous permet d'envoyer un message dans un salon(cela fonctione selment si vous etes otorisé à parler dans ce salon \n" \
+                                "/salon <nom_salon> : Vous permet d'envoyer un message dans un salon(cela fonctionne segment si vous êtes autorisé à parler dans ce salon. \n" \
                                 "/demande salon <nom_salon> <raison>: Cette commende vous permet de demander à rejoindre un salon. Si c'est un salon ouvert vous serai directement ajouter. Si c'est un salon fermer un administrateur devra vous autorisé"
                     conn.send(help_text.encode())
                 elif data.lower() == '/admin help' or data.lower() == '/admin ?':
@@ -265,18 +268,19 @@ def handle_client(conn, address):
                         if check_admin_privileges(cursor, user_login):
                             admin_help_text = "Bienvenue, je voit que tu est un admin, tu peux donc utiliser les commande suivante :\n" \
                                                 "/admin kill <username-serveur> <raison> : Pour tuer un utilisateur ou etaindre le serveur\n" \
-                                                "/admin ban <username or IP> <raison> : Pour bannir un utilisateur ou une IP\n" \
+                                                "/admin ban <username ou IP> <raison> : Pour bannir un utilisateur ou une IP\n" \
                                                 "/admin kick <username> <durée_en_min> <raison> : Pour expulser un utilisateur\n" \
                                                 "/admin demande : Pour voir les demandes\n" \
                                                 "/admin ticket <id_demande> <etat_demande> <commentaire> : Pour gérer les tickets\n"\
                                                 "/admin demande_salon: Cette commende vous permet de lister toutes les demande pour rejoindre les salon\n" \
-                                                "/admin demande_salon_update <id_demande_salon> <etat_demande_salon(yes or no)> : En utilisant cette commende vous pouvez accepter ou refuser une demande d'un utilisateur pour rejoindre un salon\n" \
+                                                "/admin demande_salon_update <id_demande_salon> <etat_demande_salon(yes ou no)> : En utilisant cette commende vous pouvez accepter ou refuser une demande d'un utilisateur pour rejoindre un salon\n" \
                                                 "/admin sign-up <open/close>: Cette commende permet à de nouveau utilisateur ou pas de rejoindre le serveur"
                             conn.send(admin_help_text.encode())
                         else:
                             conn.send("Vous n'avez pas les autorisations nécessaires pour cette commande.".encode())
                         db_connection.close()
                 elif data.startswith('/ticket'):
+                    insert_message_into_db(user_login, data)
                     user_tickets_info = user_tickets(user_login)
                     conn.send(user_tickets_info.encode())
                 elif data.startswith('/salon'):
@@ -292,6 +296,7 @@ def handle_client(conn, address):
                     else:
                         conn.send("Le format n'est pas correct. Utilisation : /salon <nom_salon> <message>".encode())
                 else:
+                    insert_message_into_db(user_login, data)
                     print(f"Message du client {address}: {data}")
                     send_to_clients(f":general {user_login}: {data}")
         except Exception as e:

@@ -299,7 +299,7 @@ class ClientWindow(QMainWindow):
 
         try:
             self.received_messages.append(f"Connecté au serveur sur {self.connection_details.host}:{self.connection_details.port}")
-            self.received_messages.append("Si vous avez besoin d'aide vous pouvez utiliser /? , /help , /admin ?, /admin help")
+            self.received_messages.append("Si vous avez besoin d'aide vous pouvez utiliser /? , /help")
             self.receive_thread = threading.Thread(target=self.receive_messages)
             self.receive_thread.start()
 

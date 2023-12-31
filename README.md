@@ -15,6 +15,9 @@ Ce dépôt GitHub contient les fichiers pour la SAE302.
   - **Client**
     - `Client.py` (Programme client avec interface graphique) [non terminé]
     - `Client_CLI.py` (Programme client sans interface)  
+  - **Document_reponse.pdf**
+  - **Instalation_serveur.pdf**
+  - **Utilisation.pdf**
 
           
 

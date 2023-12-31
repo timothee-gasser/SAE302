@@ -51,6 +51,7 @@ class AdminWindow(QMainWindow):
         layout.addWidget(self.received_messages)
 
         self.input_field = QLineEdit()
+        self.input_field.returnPressed.connect(self.send_message)
         layout.addWidget(self.input_field)
 
         send_button = QPushButton("Envoyer")
@@ -138,6 +139,8 @@ class ConnectionWindow(QMainWindow):
         self.setWindowTitle("Connexion au serveur")
 
         layout = QVBoxLayout()
+
+
 
         self.ip_input = QLineEdit()
         self.ip_input.setPlaceholderText("IP du serveur")

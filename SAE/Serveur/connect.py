@@ -1,7 +1,6 @@
-import mysql.connector
 from administration import logs, check_admin_privileges,connect_to_db
 """
-    Programe permetant l'identification des client
+    Programe permetant l'identification des client. Ces fonction sont appeler quand un utilisateur envoi la commande /connect nom mdp
 """
 def is_user_or_ip_banned(login, ip_address):
     """

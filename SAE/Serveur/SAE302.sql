@@ -67,10 +67,7 @@ CREATE TABLE `Salon` (
 ) ;
 
 
-INSERT INTO `Salon` (`id_salon`, `id_membre`, `nom_salon`, `type_salon`) VALUES
-(1, '1', 'general', 'open'),
-(2, '1', 'admin', 'close'),
-(3, '1', 'salle_de_pause', 'open');
+
 
 CREATE TABLE `Utilisateur` (
   `id_util` int(11) NOT NULL,
@@ -82,12 +79,10 @@ CREATE TABLE `Utilisateur` (
 );
 
 
-INSERT INTO `Utilisateur` (`id_util`, `login`, `mdp`, `last_ip`, `type_util`, `etat_util`) VALUES
-(1, 'root', 'admin', admin, NULL, '');
 
 ALTER TABLE `Ban`
   ADD PRIMARY KEY (`id_ban`),
-  ADD UNIQUE KEY `type_ban` (`ban_ip`) USING HASH,
+  ADD UNIQUE KEY `type_ban` (`ban_ip`(255)) USING HASH,
   ADD KEY `id_util` (`id_util`);
 
 ALTER TABLE `Demande`
@@ -126,10 +121,10 @@ ALTER TABLE `Ban`
   MODIFY `id_ban` int(11) NOT NULL AUTO_INCREMENT;
 
 ALTER TABLE `Demande`
-  MODIFY `id_demande` int(11) NOT NULL AUTO_INCREMENT
+  MODIFY `id_demande` int(11) NOT NULL AUTO_INCREMENT;
 
 ALTER TABLE `Demande_salon`
-  MODIFY `id_dsalon` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY COLUMN `id_dsalon` int(11) AUTO_INCREMENT;
 
 ALTER TABLE `Histo_msg`
   MODIFY `id_msg` int(11) NOT NULL AUTO_INCREMENT;
@@ -169,3 +164,10 @@ ALTER TABLE `Killh`
   ADD CONSTRAINT `Killh_ibfk_1` FOREIGN KEY (`id_util`) REFERENCES `Utilisateur` (`id_util`) ON DELETE CASCADE ON UPDATE CASCADE;
 COMMIT;
 
+INSERT INTO `Salon` (`id_salon`, `id_membre`, `nom_salon`, `type_salon`) VALUES
+(1, '1', 'general', 'open'),
+(2, '1', 'admin', 'close'),
+(3, '1', 'salle_de_pause', 'open');
+
+INSERT INTO `Utilisateur` (`id_util`, `login`, `mdp`, `last_ip`, `type_util`, `etat_util`) VALUES
+(1, 'root', 'admin',NULL, 'admin', '');
